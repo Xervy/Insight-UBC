@@ -20,5 +20,8 @@
 	"eslint.run": "onSave",
 	"prettier.useTabs": true,
 	"mochaExplorer.files": "test/**/*.spec.ts",
-	"mochaExplorer.require": "ts-node/register"
+	"mochaExplorer.require": "ts-node/register",
+	"[typescript]": {
+		"editor.defaultFormatter": "vscode.typescript-language-features"
+	}
 }
