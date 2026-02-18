@@ -485,30 +485,8 @@ describe("REST API v1", function () {
 		});
 	});
 
-
-	/*	
-	it("GET /api/v1/courses - Bounds +1", async () => {
-		const resLow = await request(app).get("/api/v1/courses?limit=2&offset=1");
-		expect(resLow).to.have.property("status", OK);
-		expect(resLow).to.have.deep.property("body", {
-			"total": 0,
-			"limit": 2,
-			"offset": 1,
-			"items": [],
-		});
-
-		const resHi = await request(app).get("/api/v1/courses?limit=5001&offset=1");
-		expect(resHi).to.have.property("status", BAD_REQUEST);
-		expect(resHi).to.have.deep.property("body", {
-			"error": "Invalid request parameters",
-			"params": {
-				"limit": "expected an integer between 1 and 5000",
-			}
-		});
-	});
-
-	it("GET /api/v1/courses - Bounds -1", async () => {
-		const resLow = await request(app).get("/api/v1/courses?limit=0&offset=-1");
+	it("GET /api/v1/courses/cpsc310/sections - Bounds -1", async () => {
+		const resLow = await request(app).get("/api/v1/courses/cpsc310/sections?limit=0&offset=-1");
 		expect(resLow).to.have.property("status", BAD_REQUEST);
 		expect(resLow).to.have.deep.property("body", {
 			"error": "Invalid request parameters",
@@ -518,7 +496,7 @@ describe("REST API v1", function () {
 			}
 		});
 
-		const resHi = await request(app).get("/api/v1/courses?limit=4999&offset=-1");
+		const resHi = await request(app).get("/api/v1/courses/cpsc310/sections?limit=4999&offset=-1");
 		expect(resHi).to.have.property("status", BAD_REQUEST);
 		expect(resHi).to.have.deep.property("body", {
 			"error": "Invalid request parameters",
@@ -527,6 +505,7 @@ describe("REST API v1", function () {
 			}
 		});
 	});
-*/
+
+	
 
 });
