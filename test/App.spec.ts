@@ -392,8 +392,141 @@ describe("REST API v1", function () {
 				}
 			]
 		});
-
-
 	});
+
+	it("GET /api/v1/courses/cpsc310/sections - Expected: 404", async () => {
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			"error": "Not found",
+			"message": "no course with id 'cpsc310'"
+		});
+	});
+
+	it("GET /api/v1/courses/cpsc310/sections - Expected: OK - Default", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 100,
+			"offset": 0,
+			"items": [],
+		});
+	});
+
+	it("GET /api/v1/courses/cpsc310/sections - Expected: OK - In Bounds", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections?limit=2000&offset=5");
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 2000,
+			"offset": 5,
+			"items": [],
+		});
+	});
+
+	it("GET /api/v1/courses/cpsc310/sections - Expected: OK - On Bounds", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+		const resLow = await request(app).get("/api/v1/courses/cpsc310/sections?limit=1&offset=0");
+		expect(resLow).to.have.property("status", OK);
+		expect(resLow).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 1,
+			"offset": 0,
+			"items": [],
+		});
+
+		const resHi = await request(app).get("/api/v1/courses/cpsc310/sections?limit=5000&offset=0");
+		expect(resHi).to.have.property("status", OK);
+		expect(resHi).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 5000,
+			"offset": 0,
+			"items": [],
+		});
+	});
+
+	it("GET /api/v1/courses/cpsc310/sections - Bounds +1", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+		const resLow = await request(app).get("/api/v1/courses/cpsc310/sections?limit=2&offset=1");
+		expect(resLow).to.have.property("status", OK);
+		expect(resLow).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 2,
+			"offset": 1,
+			"items": [],
+		});
+
+		const resHi = await request(app).get("/api/v1/courses/cpsc310/sections?limit=5001&offset=1");
+		expect(resHi).to.have.property("status", BAD_REQUEST);
+		expect(resHi).to.have.deep.property("body", {
+			"error": "Invalid request parameters",
+			"params": {
+				"limit": "expected an integer between 1 and 5000",
+			}
+		});
+	});
+
+
+	/*	
+	it("GET /api/v1/courses - Bounds +1", async () => {
+		const resLow = await request(app).get("/api/v1/courses?limit=2&offset=1");
+		expect(resLow).to.have.property("status", OK);
+		expect(resLow).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 2,
+			"offset": 1,
+			"items": [],
+		});
+
+		const resHi = await request(app).get("/api/v1/courses?limit=5001&offset=1");
+		expect(resHi).to.have.property("status", BAD_REQUEST);
+		expect(resHi).to.have.deep.property("body", {
+			"error": "Invalid request parameters",
+			"params": {
+				"limit": "expected an integer between 1 and 5000",
+			}
+		});
+	});
+
+	it("GET /api/v1/courses - Bounds -1", async () => {
+		const resLow = await request(app).get("/api/v1/courses?limit=0&offset=-1");
+		expect(resLow).to.have.property("status", BAD_REQUEST);
+		expect(resLow).to.have.deep.property("body", {
+			"error": "Invalid request parameters",
+			"params": {
+				"limit": "expected an integer between 1 and 5000",
+				"offset": "expected an integer >= 0"
+			}
+		});
+
+		const resHi = await request(app).get("/api/v1/courses?limit=4999&offset=-1");
+		expect(resHi).to.have.property("status", BAD_REQUEST);
+		expect(resHi).to.have.deep.property("body", {
+			"error": "Invalid request parameters",
+			"params": {
+				"offset": "expected an integer >= 0",
+			}
+		});
+	});
+*/
 
 });
