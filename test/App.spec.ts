@@ -305,4 +305,95 @@ describe("REST API v1", function () {
 		});
 	});
 
+	it("DELETE /api/v1/courses/none - Expected: 404", async () => {
+		const res = await request(app).del("/api/v1/courses/none");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			"error": "Not found",
+			"message": "no course with id 'none'"
+		});
+	});
+
+	it("DELETE /api/v1/courses/cpsc310 - Expected: 200", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+		await request(app).put("/api/v1/courses/cpsc210").send({
+			"title": "Software Construction",
+			"dept": "Computer Science",
+			"code": "210"
+		});
+
+		const res = await request(app).del("/api/v1/courses/none");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			"error": "Not found",
+			"message": "no course with id 'none'"
+		});
+
+		const init = await request(app).get("/api/v1/courses");
+		expect(init).to.have.property("status", OK);
+		expect(init).to.have.deep.property("body", {
+			"total": 2,
+			"limit": 100,
+			"offset": 0,
+			"items": [
+				{
+					"id": "cpsc210",
+					"title": "Software Construction",
+					"dept": "Computer Science",
+					"code": "210",
+					"links": {
+						"self": "/api/v1/courses/cpsc210",
+						"sections": "/api/v1/courses/cpsc210/sections"
+					}
+				},
+				{
+					"id": "cpsc310",
+					"title": "Introduction to Software Engineering",
+					"dept": "Computer Science",
+					"code": "310",
+					"links": {
+						"self": "/api/v1/courses/cpsc310",
+						"sections": "/api/v1/courses/cpsc310/sections"
+					}
+				}
+			]
+		});
+
+		const todel = await request(app).del("/api/v1/courses/cpsc310");
+		expect(todel).to.have.property("status", OK);
+		expect(todel).to.have.deep.property("body", {
+			"id": "cpsc310",
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310",
+			"sections": 0
+		});
+
+		const check = await request(app).get("/api/v1/courses");
+		expect(check).to.have.property("status", OK);
+		expect(check).to.have.deep.property("body", {
+			"total": 1,
+			"limit": 100,
+			"offset": 0,
+			"items": [
+				{
+					"id": "cpsc210",
+					"title": "Software Construction",
+					"dept": "Computer Science",
+					"code": "210",
+					"links": {
+						"self": "/api/v1/courses/cpsc210",
+						"sections": "/api/v1/courses/cpsc210/sections"
+					}
+				}
+			]
+		});
+
+
+	});
+
 });
