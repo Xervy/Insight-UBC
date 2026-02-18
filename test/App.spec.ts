@@ -3,13 +3,14 @@ import { expect } from "chai";
 import request from "supertest";
 import { StatusCodes } from "http-status-codes";
 import { Application, createApp } from "../src/App";
+import { NOTFOUND } from "dns";
 
 const {
 	OK, // 200
 	// Other common codes are:
-	// CREATED, // 201
-	// NO_CONTENT, // 204
-	// NOT_FOUND, // 404
+	CREATED, // 201
+	NO_CONTENT, // 204
+	NOT_FOUND, // 404
 	BAD_REQUEST, // 400
 } = StatusCodes;
 
@@ -37,10 +38,10 @@ describe("REST API v1", function () {
 		const res = await request(app).get("/api/v1/courses");
 		expect(res).to.have.property("status", OK);
 		expect(res).to.have.deep.property("body", {
-			total: 0,
-			limit: 100,
-			offset: 0,
-			items: [],
+			"total": 0,
+			"limit": 100,
+			"offset": 0,
+			"items": [],
 		});
 	});
 
@@ -48,10 +49,10 @@ describe("REST API v1", function () {
 		const res = await request(app).get("/api/v1/courses?limit=2000&offset=5");
 		expect(res).to.have.property("status", OK);
 		expect(res).to.have.deep.property("body", {
-			total: 0,
-			limit: 2000,
-			offset: 5,
-			items: [],
+			"total": 0,
+			"limit": 2000,
+			"offset": 5,
+			"items": [],
 		});
 	});
 
@@ -59,19 +60,19 @@ describe("REST API v1", function () {
 		const resLow = await request(app).get("/api/v1/courses?limit=1&offset=0");
 		expect(resLow).to.have.property("status", OK);
 		expect(resLow).to.have.deep.property("body", {
-			total: 0,
-			limit: 1,
-			offset: 0,
-			items: [],
+			"total": 0,
+			"limit": 1,
+			"offset": 0,
+			"items": [],
 		});
 
 		const resHi = await request(app).get("/api/v1/courses?limit=5000&offset=0");
 		expect(resHi).to.have.property("status", OK);
 		expect(resHi).to.have.deep.property("body", {
-			total: 0,
-			limit: 5000,
-			offset: 0,
-			items: [],
+			"total": 0,
+			"limit": 5000,
+			"offset": 0,
+			"items": [],
 		});
 	});
 
@@ -79,18 +80,18 @@ describe("REST API v1", function () {
 		const resLow = await request(app).get("/api/v1/courses?limit=2&offset=1");
 		expect(resLow).to.have.property("status", OK);
 		expect(resLow).to.have.deep.property("body", {
-			total: 0,
-			limit: 2,
-			offset: 1,
-			items: [],
+			"total": 0,
+			"limit": 2,
+			"offset": 1,
+			"items": [],
 		});
 
 		const resHi = await request(app).get("/api/v1/courses?limit=5001&offset=1");
 		expect(resHi).to.have.property("status", BAD_REQUEST);
 		expect(resHi).to.have.deep.property("body", {
-			error: "Invalid request parameters",
-			params: {
-				limit: "expected an integer between 1 and 5000",
+			"error": "Invalid request parameters",
+			"params": {
+				"limit": "expected an integer between 1 and 5000",
 			}
 		});
 	});
@@ -99,20 +100,29 @@ describe("REST API v1", function () {
 		const resLow = await request(app).get("/api/v1/courses?limit=0&offset=-1");
 		expect(resLow).to.have.property("status", BAD_REQUEST);
 		expect(resLow).to.have.deep.property("body", {
-			error: "Invalid request parameters",
-			params: {
-				limit: "expected an integer between 1 and 5000",
-				offset: "expected an integer >= 0"
+			"error": "Invalid request parameters",
+			"params": {
+				"limit": "expected an integer between 1 and 5000",
+				"offset": "expected an integer >= 0"
 			}
 		});
 
 		const resHi = await request(app).get("/api/v1/courses?limit=4999&offset=-1");
 		expect(resHi).to.have.property("status", BAD_REQUEST);
 		expect(resHi).to.have.deep.property("body", {
-			error: "Invalid request parameters",
-			params: {
-				offset: "expected an integer >= 0",
+			"error": "Invalid request parameters",
+			"params": {
+				"offset": "expected an integer >= 0",
 			}
+		});
+	});
+
+	it("GET /api/v1/courses - Expected: 404 - No Course", async () => {
+		const res = await request(app).get("/api/v1/courses/noCourse");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			"error": "Not found",
+			"message": "no course with id 'noCourse'",
 		});
 	});
 
