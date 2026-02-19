@@ -1037,6 +1037,32 @@ describe("REST API v1", function () {
 		});
 	});
 
+	it("PUT /api/v1/courses/cpsc310/sections/21w201 - Expected 422 - Mixed", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+
+		const mix = await request(app).put("/api/v1/courses/cpsc310/sections/21w201").send({
+			"instructor": 0,
+			"avg": 105,
+			"pass": -5,
+			"fail": 34,
+		});
+		expect(mix).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(mix).to.have.deep.property("body", {
+			"error": "Validation failed",
+			"fields": {
+				"instructor": "expected a string",
+				"year": "required but missing",
+				"avg": "expected a number between 0 and 100",
+				"pass": "expected a number >= 0",
+				"audit": "required but missing"
+			}
+		});
+	});
+
 	it("PUT /api/v1/courses/cpsc310/sections/21w201 - Expected 201 - On Bounds", async () => {
 		await request(app).put("/api/v1/courses/cpsc310").send({
 			"title": "Introduction to Software Engineering",
@@ -1109,6 +1135,106 @@ describe("REST API v1", function () {
 					}
 				}
 			]
+		});
+	});
+
+	it("DELETE /api/v1/courses/[course]/sections/[section] - Expected: 404 - No Course/Section", async () => {
+		const res = await request(app).del("/api/v1/courses/cpsc310/sections/21w201");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			"error": "Not found",
+			"message": "no course with id 'cpsc310'"
+		});
+
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+
+		const next = request(app).del("/api/v1/courses/cpsc310/sections/21w201");
+		expect(next).to.have.property("status", NOT_FOUND);
+		expect(next).to.have.deep.property("body", {
+			"error": "Not found",
+			"message": "no section with id '21w201'"
+		});
+	});
+
+	it("DELETE /api/v1/courses/cpsc310/sections/[section] - Expected 200", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			"title": "Introduction to Software Engineering",
+			"dept": "Computer Science",
+			"code": "310"
+		});
+		await request(app).put("/api/v1/courses/cpsc310/sections/21w201").send({
+			"instructor": "holmes, reid",
+			"year": 2021,
+			"avg": 76.4,
+			"pass": 167,
+			"fail": 3,
+			"audit": 1
+		});
+		await request(app).put("/api/v1/courses/cpsc310/sections/21w202").send({
+			"instructor": "bradley, nick",
+			"year": 2021,
+			"avg": 77.1,
+			"pass": 172,
+			"fail": 1,
+			"audit": 0
+		});
+
+		const res = await request(app).del("/api/v1/courses/cpsc310/sections/21w201");
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			"id": "21w201",
+			"instructor": "holmes, reid",
+			"year": 2021,
+			"avg": 76.4,
+			"pass": 167,
+			"fail": 3,
+			"audit": 1
+		});
+
+		const list = await request(app).get("/api/v1/courses/cpsc310/sections");
+		expect(list).to.have.deep.property("body", {
+			"total": 1,
+			"limit": 100,
+			"offset": 0,
+			"items": [
+				{
+					"id": "21w202",
+					"instructor": "bradley, nick",
+					"year": 2021,
+					"avg": 77.1,
+					"pass": 172,
+					"fail": 1,
+					"audit": 0,
+					"links": {
+						"self": "/api/v1/courses/cpsc310/sections/21w202",
+						"course": "/api/v1/courses/cpsc310"
+					}
+				}
+			]
+		});
+
+		const res2 = await request(app).del("/api/v1/courses/cpsc310/sections/21w202");
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			"id": "21w202",
+			"instructor": "bradley, nick",
+			"year": 2021,
+			"avg": 77.1,
+			"pass": 172,
+			"fail": 1,
+			"audit": 0
+		});
+
+		const list2 = await request(app).get("/api/v1/courses/cpsc310/sections");
+		expect(list2).to.have.deep.property("body", {
+			"total": 0,
+			"limit": 100,
+			"offset": 0,
+			"items": []
 		});
 	});
 	/*
