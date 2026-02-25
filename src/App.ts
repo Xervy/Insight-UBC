@@ -238,7 +238,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			total: sections.length,
 			limit,
 			offset,
-			items, 
+			items,
 		});
 	});
 
