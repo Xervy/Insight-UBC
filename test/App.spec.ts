@@ -9,11 +9,11 @@ const {
 	OK, // 200
 	// Other common codes are:
 	CREATED, // 201
+	ACCEPTED, // 202
 	NO_CONTENT, // 204
 	NOT_FOUND, // 404
 	BAD_REQUEST, // 400
 	UNPROCESSABLE_ENTITY, //422
-	REQUEST_TOO_LONG, //413
 } = StatusCodes;
 
 // Do not change datadir
@@ -21,18 +21,166 @@ const datadir = "./data" as const;
 
 describe("REST API v1", function () {
 	let app: Application;
-	let datadir = "./.App.spects";
-
-	before(async () => {
-		await fs.mkdir(datadir, { recursive: true });
-	}); //ChatGPT
+	let idSet: Set<String>;
 
 	beforeEach(async () => {
 		app = await createApp({ datadir });
+		idSet = new Set<String>();
 	});
 
 	afterEach(async () => {
 		await fs.rm(datadir, { recursive: true, force: true });
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Missing", async () => {
+		const uploadRes = await request(app).post("/api/v1/datasets");
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "required but missing",
+				archive: "required but missing",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Expected Different", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "yeet")
+			.attach("archive", Buffer.alloc(0), "courses.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings",
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Mixed", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", Buffer.alloc(0), "courses.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("GET /api/v1/datasets/none - Expected: 404", async () => {
+		const res = await request(app).get("/api/v1/datasets/none");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no dataset with id 'none'",
+		});
+	});
+
+	it("GET /api/v1/datasets/[uploadID] - Expected: 200", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/item1.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "completed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 1,
+				files_processed: 1,
+				files_skipped: 0,
+				courses_seen: 2,
+				courses_added: 1,
+				courses_modified: 1,
+				sections_seen: 2,
+				sections_added: 2,
+				sections_modified: 0,
+			},
+			message: "Dataset processing complete",
+		});
+	});
+
+	it("GET /api/v1/datasets/[uploadID] - Expected: 200 - 3 Files", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/3_files.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "completed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 3,
+				files_processed: 3,
+				files_skipped: 0,
+				courses_seen: 11,
+				courses_added: 5,
+				courses_modified: 6,
+				sections_seen: 11,
+				sections_added: 7,
+				sections_modified: 4,
+			},
+			message: "Dataset processing complete",
+		});
 	});
 
 	it("GET /api should respond with status OK and text 'App is running!'", async () => {
@@ -159,13 +307,13 @@ describe("REST API v1", function () {
 			offset: 0,
 			items: [
 				{
-					id: "cpsc210",
-					title: "Software Construction",
+					id: "cpsc310",
+					title: "Introduction to Software Engineering",
 					dept: "Computer Science",
-					code: "210",
+					code: "310",
 					links: {
-						self: "/api/v1/courses/cpsc210",
-						sections: "/api/v1/courses/cpsc210/sections",
+						self: "/api/v1/courses/cpsc310",
+						sections: "/api/v1/courses/cpsc310/sections",
 					},
 				},
 			],
@@ -206,13 +354,13 @@ describe("REST API v1", function () {
 			offset: 0,
 			items: [
 				{
-					id: "cpsc210",
-					title: "Software Construction",
+					id: "cpsc310",
+					title: "Introduction to Software Engineering",
 					dept: "Computer Science",
-					code: "210",
+					code: "310",
 					links: {
-						self: "/api/v1/courses/cpsc210",
-						sections: "/api/v1/courses/cpsc210/sections",
+						self: "/api/v1/courses/cpsc310",
+						sections: "/api/v1/courses/cpsc310/sections",
 					},
 				},
 			],
@@ -496,6 +644,11 @@ describe("REST API v1", function () {
 	});
 
 	it("GET /api/v1/courses/cpsc310/sections - Bounds -1", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			title: "Introduction to Software Engineering",
+			dept: "Computer Science",
+			code: "310",
+		});
 		const resLow = await request(app).get("/api/v1/courses/cpsc310/sections?limit=0&offset=-1");
 		expect(resLow).to.have.property("status", BAD_REQUEST);
 		expect(resLow).to.have.deep.property("body", {
@@ -771,7 +924,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -834,7 +987,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -897,7 +1050,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -944,7 +1097,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -991,7 +1144,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -1038,7 +1191,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -1088,11 +1241,18 @@ describe("REST API v1", function () {
 			fail: 0,
 			audit: 0,
 		});
-		expect(lo).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(lo).to.have.property("status", CREATED);
 		expect(lo).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				avg: "required but missing",
+			id: "21w201",
+			instructor: "holmes, reid",
+			year: 1900,
+			avg: 0,
+			pass: 0,
+			fail: 0,
+			audit: 0,
+			links: {
+				self: "/api/v1/courses/cpsc310/sections/21w201",
+				course: "/api/v1/courses/cpsc310",
 			},
 		});
 
@@ -1104,11 +1264,18 @@ describe("REST API v1", function () {
 			fail: 1,
 			audit: 1,
 		});
-		expect(hi).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(hi).to.have.property("status", CREATED);
 		expect(hi).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				avg: "expected a number between 0 and 100",
+			id: "21w202",
+			instructor: "bradley, nick",
+			year: 2099,
+			avg: 100,
+			pass: 1,
+			fail: 1,
+			audit: 1,
+			links: {
+				self: "/api/v1/courses/cpsc310/sections/21w202",
+				course: "/api/v1/courses/cpsc310",
 			},
 		});
 
@@ -1162,7 +1329,7 @@ describe("REST API v1", function () {
 			code: "310",
 		});
 
-		const next = request(app).del("/api/v1/courses/cpsc310/sections/21w201");
+		const next = await request(app).del("/api/v1/courses/cpsc310/sections/21w201");
 		expect(next).to.have.property("status", NOT_FOUND);
 		expect(next).to.have.deep.property("body", {
 			error: "Not found",
@@ -1249,326 +1416,4 @@ describe("REST API v1", function () {
 	});
 	/*
 	 */
-
-	//search 422 missing kind field
-	it("POST /api/v1/search - Expected: 422 - Missing kind field", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				query: {
-					WHERE: {},
-					OPTIONS: {
-						COLUMNS: ["dept", "avg"],
-						ORDER: "year",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
-		expect(res).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				kind: "required but missing",
-			},
-		});
-	});
-
-	//Search invalid kind
-	it("POST /api/v1/search - Expected: 422 - Invalid kind field", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "invalid_course",
-				query: {
-					WHERE: {},
-					OPTIONS: {
-						COLUMNS: ["dept", "avg"],
-						ORDER: "year",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
-		expect(res).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				kind: "expected to be course_offerings",
-			},
-		});
-	});
-
-	//Search missing query field
-	it("POST /api/v1/search - Expected: 422 -  missing query field", async () => {
-		const res = await request(app).post("/api/v1/search").send({
-			kind: "course_offerings",
-		});
-
-		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
-		expect(res).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				query: "required but missing",
-			},
-		});
-	});
-
-	//Search invalid query field
-	it("POST /api/v1/search - Expected: 422 -  invalid query field", async () => {
-		const res = await request(app).post("/api/v1/search").send({
-			kind: "course_offerings",
-			WHERE: {},
-			query: "invalid",
-		});
-
-		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
-		expect(res).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				query: "expected an object",
-			},
-		});
-	});
-
-	//Search too many results
-	it("POST /api/v1/search - Expected: 413 -  too many results", async () => {
-		type Offering = {
-			dept: string;
-			avg: number;
-			pass: number;
-			fail: number;
-			audit: number;
-			year: number;
-			instructor: string;
-		};
-		const lotsOfCourses: Offering[] = Array.from({ length: 5001 }, (_, i) => ({
-			dept: "cpsc",
-			code: String(100 + (i % 50)),
-			title: "Computer Science",
-			instructor: "Bob",
-			year: 2021,
-			avg: 50,
-			pass: 20,
-			fail: 19,
-			audit: 0,
-		}));
-
-		await fs.writeFile(
-			datadir,
-			JSON.stringify(lotsOfCourses, null, 2), // pretty format
-			"utf-8"
-		);
-
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				query: {
-					WHERE: {},
-					OPTIONS: {
-						COLUMNS: ["dept"],
-						ORDER: "year",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", REQUEST_TOO_LONG);
-		expect(res).to.have.deep.property("body", {
-			error: "Too many results",
-			message: "Query would return more than 5000 results",
-			limit: 5000,
-		});
-	});
-
-	//Search max results
-	it("POST /api/v1/search - Expected: 200 -  max results", async () => {
-		type Offering = {
-			dept: string;
-			avg: number;
-			pass: number;
-			fail: number;
-			audit: number;
-			year: number;
-			instructor: string;
-		};
-		const lotsOfCourses: Offering[] = Array.from({ length: 5000 }, (_, i) => ({
-			dept: "cpsc",
-			code: String(100 + (i % 50)),
-			title: "Computer Science",
-			instructor: "Bob",
-			year: 2021,
-			avg: 50,
-			pass: 20,
-			fail: 19,
-			audit: 0,
-		}));
-
-		await fs.writeFile(
-			datadir,
-			JSON.stringify(lotsOfCourses, null, 2), // pretty format
-			"utf-8"
-		);
-
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				WHERE: {},
-				query: {
-					OPTIONS: {
-						COLUMNS: ["dept", "code", "title", "instructor", "avg", "pass", "fail", "audit", "year"],
-						ORDER: "avg",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", OK);
-		expect(res).to.have.deep.property("body", { lotsOfCourses });
-		expect(res).to.be.an("array");
-		expect(res.body.length).to.equal(5000);
-	});
-
-	//Search missing WHERE
-	it("POST /api/v1/search - Expected: 400 -  Missing WHERE", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				query: {
-					OPTIONS: {
-						COLUMNS: ["dept"],
-						ORDER: "avg",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", BAD_REQUEST);
-		expect(res).to.have.deep.property("body", {
-			error: "Invalid query",
-			message: "Missing WHERE",
-		});
-	});
-
-	//Search missing COLUMNS key
-	it("POST /api/v1/search - Expected: 400 -  Missing COLUMNS key", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				WHERE: {},
-				query: {
-					OPTIONS: {
-						COLUMNS: ["invalid"],
-						ORDER: "avg",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", BAD_REQUEST);
-		expect(res).to.have.deep.property("body", {
-			error: "Invalid query",
-			message: "Unknown key in COLUMNS",
-		});
-	});
-
-	//Search invalid ORDER
-	it("POST /api/v1/search - Expected: 400 -  Invalid ORDER", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				WHERE: {},
-				query: {
-					OPTIONS: {
-						COLUMNS: ["dept"],
-						ORDER: "invalid",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", BAD_REQUEST);
-		expect(res).to.have.deep.property("body", {
-			error: "Invalid query",
-			message: "ORDER must be a key in COLUMNS",
-		});
-	});
-
-	//Basic query simple
-	it("POST /api/v1/search - Expected: 200 -  Basic Query", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				WHERE: {
-					GT: { avg: 80 },
-				},
-				query: {
-					OPTIONS: {
-						COLUMNS: ["dept", "avg"],
-						ORDER: "avg",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", OK);
-		expect(res.body).to.be.an("array");
-		for (const row of res.body) {
-			expect(row).to.have.all.keys("dept", "avg");
-			expect(row.avg).to.be.greaterThan(80);
-		}
-		for (let i = 1; i < res.body.length; i++) {
-			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
-		}
-	});
-
-	//Complex query
-	it("POST /api/v1/search - Expected: 200 -  Complex Query", async () => {
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				query: {
-					WHERE: {
-						OR: [
-							{
-								AND: [
-									{
-										GT: {
-											avg: 90,
-										},
-									},
-									{
-										IS: {
-											dept: "adhe",
-										},
-									},
-								],
-							},
-							{
-								EQ: {
-									avg: 95,
-								},
-							},
-						],
-					},
-					OPTIONS: {
-						COLUMNS: ["dept", "avg", "year"],
-						ORDER: "avg",
-					},
-				},
-			});
-
-		expect(res).to.have.property("status", OK);
-		expect(res.body).to.be.an("array");
-		for (const row of res.body) {
-			expect(row).to.have.all.keys("dept", "avg", "year");
-			if (row.dept === "adhe") {
-				expect(row.avg).to.be.greaterThan(90);
-			} else {
-				expect(row.avg).to.be.equal(95);
-			}
-		}
-		for (let i = 1; i < res.body.length; i++) {
-			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
-		}
-	});
 });
