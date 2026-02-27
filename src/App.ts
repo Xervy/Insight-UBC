@@ -580,27 +580,231 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.status(200).json(data);
 	});
 
-	app.post("/api/v1/datasets", upload.single("archive"), async (req, res): Promise<void> => {
-		const kind = req.body.kind;
-		if (kind !== "course_offerings" || !req.file) {
-			res.status(422).json({ error: "Validation failed" });
+	// app.post("/api/v1/datasets", upload.single("archive"), async (req, res): Promise<void> => {
+	// 	const kind = req.body.kind;
+	// 	if (kind !== "course_offerings" || !req.file) {
+	// 		res.status(422).json({ error: "Validation failed" });
+	// 		return;
+	// 	}
+	// 	const dataId = `upload_${Date.now()}_${Math.random().toString(16).slice(2)}`; //ChatGPT
+	// 	const data: Upload = {
+	// 		id: dataId,
+	// 		status: "processing",
+	// 		kind: "course_offerings",
+	// 		message: "Dataset accepted for processing",
+	// 	};
+
+	// 	const datas = await readUploads();
+	// 	datas.push(data);
+	// 	await writeUpload(datas);
+
+	// 	res.status(202).json(data);
+
+	// 	setImmediate(() => processDataset(dataId, req.file!.buffer).catch(() => void 0)); //ChatGPT
+	// });
+	app.post("/api/v1/datasets", upload.single("archive"), async (req, res) => {
+		// SC 422
+		let isError = false;
+		const errorMes = {
+			error: "Validation failed",
+			fields: {} as any,
+		};
+		if (!req.body || !req.body.kind) {
+			errorMes.fields["kind"] = "required but missing";
+			isError = true;
+		} else if (req.body.kind != "course_offerings") {
+			errorMes.fields["kind"] = "expected to be course_offerings";
+			isError = true;
+		}
+
+		if (!req.file) {
+			errorMes.fields["archive"] = "required but missing";
+			isError = true;
+		} else if (req.file.size == 0) {
+			errorMes.fields["archive"] = "expected non-empty file";
+			isError = true;
+		}
+
+		if (isError) {
+			res.status(422).json(errorMes);
 			return;
 		}
-		const dataId = `upload_${Date.now()}_${Math.random().toString(16).slice(2)}`; //ChatGPT
-		const data: Upload = {
-			id: dataId,
+
+		const id = generateSectionID();
+		res.status(202).json({
+			id: id.toString(),
 			status: "processing",
 			kind: "course_offerings",
 			message: "Dataset accepted for processing",
-		};
+		});
 
-		const datas = await readUploads();
-		datas.push(data);
-		await writeUpload(datas);
+		const storageFile = await fs.readFile(datafile, "utf-8");
+		const jsonFile = JSON.parse(storageFile) as Course[];
 
-		res.status(202).json(data);
+		const stats = {
+			id: id.toString(),
+			status: "processing",
+			kind: req.body.kind,
+			message: "Dataset accepted for processing",
+			files_total: 0,
+			files_processed: 0,
+			files_skipped: 0,
+			courses_seen: 0,
+			courses_added: 0,
+			courses_modified: 0,
+			sections_seen: 0,
+			sections_added: 0,
+			sections_modified: 0,
+		} as UploadStats;
+		bulkUploads.push(stats);
 
-		setImmediate(() => processDataset(dataId, req.file!.buffer).catch(() => void 0)); //ChatGPT
+		// const coursesToAdd = [] as Course[];
+
+		// The file will be available as req.file
+		// The zip content is in req.file.buffer
+		const zipBuffer = req.file!.buffer;
+
+		// CHECK IF ZIPBUFFER IS ACTUALLY A ZIP 	ASK POOKIE
+		// if (!zipBuffer || zipBuffer.length < 4) {
+		// 	// Not a Valid Zip
+		// 	stats.status = "failed";
+		// 	return;
+		// }
+
+		let zip;
+		// Use JSZip to process the buffer
+		try {
+			zip = await JSZip.loadAsync(zipBuffer);
+		} catch (e) {
+			stats.status = "failed";
+			return;
+		}
+
+		// CHECK FOR COURSES FOLDER
+		const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
+		if (!hasCoursesFolder) {
+			stats.status = "failed";
+			stats.message = "Missing root courses directory";
+			return;
+		}
+
+		// All files in courses
+		const coursesFiles = Object.values(zip.files).filter(
+			(file) => file.name.startsWith("courses/") && file.name !== "courses/" && !file.dir
+		);
+
+		for (const file of coursesFiles) {
+			const fileContent = await file.async("string");
+			stats.files_total += 1;
+			let parsedFile;
+			try {
+				parsedFile = JSON.parse(fileContent);
+
+				if (!parsedFile.result || !Array.isArray(parsedFile.result)) {
+					stats.files_skipped += 1;
+					continue;
+				}
+			} catch {
+				stats.files_skipped += 1;
+				continue; // YAY OR NAY?
+			}
+			stats.files_processed += 1;
+			// JSON needs to have parameter 'result' which must be an array
+
+			// record is each offering object in result
+			for (const record of parsedFile.result) {
+				// Check Database if Course already Exists
+				// If So: Iterate through Sections to find if Section Exists, Determine if new Section or modify section
+				// If not: Push the new course to the database
+				const courseID = record.Subject + record.Course;
+				const sectionID = record.id;
+				let sectionWasAdded = false;
+
+				let sectionYear = Number(record.Year);
+				if (record.Section == "overall") {
+					sectionYear = 1900;
+				}
+
+				for (const course of jsonFile) {
+					if (course.id == courseID) {
+						// Make Updates
+						course.code = record.Course;
+						course.dept = record.Subject;
+						let mostRecent = true;
+
+						for (const section of course.sections) {
+							if (section.year >= sectionYear) {
+								mostRecent = false;
+								break;
+							}
+						}
+						if (mostRecent) {
+							course.title = record.Title;
+						}
+
+						// Check if Course already has Section
+						// If No, Push Section to Course
+						// If Yes, Update Section Parameters
+						const alreadyHasSection = course.sections.find((section) => section.id == record.id);
+						if (!alreadyHasSection) {
+							course.sections.push({
+								id: sectionID.toString(),
+								instructor: record.Professor,
+								year: sectionYear,
+								avg: record.Avg,
+								pass: record.Pass,
+								fail: record.Fail,
+								audit: record.Audit,
+							});
+							stats.sections_added += 1;
+						} else {
+							alreadyHasSection.instructor = record.Professor;
+							if (record.Section == "overall") {
+								alreadyHasSection.year = 1900;
+							} else {
+								alreadyHasSection.year = sectionYear;
+							}
+							alreadyHasSection.avg = record.Avg;
+							alreadyHasSection.pass = record.Pass;
+							alreadyHasSection.fail = record.Fail;
+							alreadyHasSection.audit = record.Audit;
+
+							stats.sections_modified += 1;
+						}
+
+						stats.courses_modified += 1;
+						sectionWasAdded = true;
+					}
+				}
+				// If the Course does not already exist, add it to jsonFile
+				if (!sectionWasAdded) {
+					jsonFile.push({
+						id: courseID,
+						title: record.Title,
+						dept: record.Subject,
+						code: record.Course,
+						sections: [
+							{
+								id: sectionID.toString(),
+								instructor: record.Professor,
+								year: sectionYear,
+								avg: record.Avg,
+								pass: record.Pass,
+								fail: record.Fail,
+								audit: record.Audit,
+							},
+						],
+					});
+					stats.courses_added += 1;
+					stats.sections_added += 1;
+				}
+			}
+		}
+		stats.courses_seen = stats.courses_added + stats.courses_modified;
+		stats.sections_seen = stats.sections_added + stats.sections_modified;
+		// Write Json to file
+		await fs.writeFile(datafile, JSON.stringify(jsonFile), "utf-8");
+		stats.status = "completed";
 	});
 
 	async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
