@@ -42,6 +42,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	const { datadir } = config;
 
+	const bulkUploads = [] as UploadStats[];
+
 	// Ensure the data directory exists
 	await fs.mkdir(datadir, { recursive: true });
 
@@ -803,7 +805,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.courses_seen = stats.courses_added + stats.courses_modified;
 		stats.sections_seen = stats.sections_added + stats.sections_modified;
 		// Write Json to file
-		await fs.writeFile(datafile, JSON.stringify(courses), "utf-8");
+		await writeData(courses);
 		stats.status = "completed";
 	});
 
@@ -952,5 +954,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		await writeUpload(datas);
 	}
+
+	
 	return app;
 }
