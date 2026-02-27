@@ -1243,12 +1243,4 @@ describe("REST API v1", function () {
 	});
 	/*
 	 */
-
-	// it("POST /api/v1/datasets - Expected: 202", async () => {
-	// 	const datasetBuffer = await fs.readFile(path.resolve(__dirname, "pair.zip"));
-	// 	const uploadRes = await request(app)
-	// 								.post("/api/v1/datasets")
-	// 								.field("kind", "course_offerings")
-	// 								.attach("archive", datasetBuffer, "courses.zip");
-	// });
 });
