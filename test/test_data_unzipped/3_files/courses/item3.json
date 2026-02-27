@@ -1,0 +1,82 @@
+{
+    "result": [
+        {
+            "id": 2,
+            "Course": "100",
+            "Title": "Intro to Calculus",
+            "Professor": "Aloe P. Shah",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2025",
+            "Avg": 84,
+            "Pass": 84,
+            "Fail": 2,
+            "Audit": 1
+        },
+        {
+            "id": 3,
+            "Course": "101",
+            "Title": "Integrals",
+            "Professor": "Poo Key",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2023",
+            "Avg": 75,
+            "Pass": 100,
+            "Fail": 50,
+            "Audit": 0
+        },
+        {
+            "id": 4,
+            "Course": "112",
+            "Title": "Algebra",
+            "Professor": "Pee Dawg",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2021",
+            "Avg": 90,
+            "Pass": 166,
+            "Fail": 10,
+            "Audit": 2
+        },
+        {
+            "id": 5,
+            "Course": "112",
+            "Title": "Algebra",
+            "Professor": "Pee Dawg",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2021",
+            "Avg": 90,
+            "Pass": 166,
+            "Fail": 10,
+            "Audit": 2
+        },
+        {
+            "id": 1,
+            "Course": "310",
+            "Title": "Software Engineering",
+            "Professor": "Nick Bradley",
+            "Subject": "CPSC",
+            "Section": "101",
+            "Year": "2025",
+            "Avg": 77,
+            "Pass": 120,
+            "Fail": 40,
+            "Audit": 10
+        },
+        {
+            "id": 1,
+            "Course": "210",
+            "Title": "Object Oriented Programming",
+            "Professor": "Row Hunny",
+            "Subject": "CPSC",
+            "Section": "101",
+            "Year": "2020",
+            "Avg": 77,
+            "Pass": 120,
+            "Fail": 40,
+            "Audit": 10
+        }
+    ]
+}

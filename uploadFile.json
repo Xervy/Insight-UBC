@@ -1,0 +1,36 @@
+[
+  {
+    "id": "upload_1772231855727_07d19a25f5efa8",
+    "status": "failed",
+    "kind": "course_offerings",
+    "message": "Dataset accepted for processing",
+    "stats": {
+      "files_total": 0,
+      "files_processed": 0,
+      "files_skipped": 0,
+      "courses_seen": 0,
+      "courses_added": 0,
+      "courses_modified": 0,
+      "sections_seen": 0,
+      "sections_added": 0,
+      "sections_modified": 0
+    }
+  },
+  {
+    "id": "upload_1772231875397_4668534ebaf928",
+    "status": "failed",
+    "kind": "course_offerings",
+    "message": "Dataset accepted for processing",
+    "stats": {
+      "files_total": 0,
+      "files_processed": 0,
+      "files_skipped": 0,
+      "courses_seen": 0,
+      "courses_added": 0,
+      "courses_modified": 0,
+      "sections_seen": 0,
+      "sections_added": 0,
+      "sections_modified": 0
+    }
+  }
+]

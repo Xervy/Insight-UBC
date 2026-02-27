@@ -4,6 +4,7 @@ import request from "supertest";
 import { StatusCodes } from "http-status-codes";
 import { Application, createApp } from "../src/App";
 import { NOTFOUND } from "dns";
+import path from "path";
 
 const {
 	OK, // 200

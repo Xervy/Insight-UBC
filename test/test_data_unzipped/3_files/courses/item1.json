@@ -1,0 +1,30 @@
+{
+    "result": [
+        {
+            "id": 0,
+            "Course": "310",
+            "Title": "Software Engineering",
+            "Professor": "Nick Bradley",
+            "Subject": "CPSC",
+            "Section": "100",
+            "Year": "2025",
+            "Avg": 75,
+            "Pass": 100,
+            "Fail": 50,
+            "Audit": 0
+        },
+        {
+            "id": 1,
+            "Course": "310",
+            "Title": "Software Engineering",
+            "Professor": "Nick Bradley",
+            "Subject": "CPSC",
+            "Section": "101",
+            "Year": "2025",
+            "Avg": 77,
+            "Pass": 120,
+            "Fail": 40,
+            "Audit": 10
+        }
+    ]
+}
