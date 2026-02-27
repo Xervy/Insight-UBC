@@ -13,6 +13,7 @@ const {
 	NOT_FOUND, // 404
 	BAD_REQUEST, // 400
 	UNPROCESSABLE_ENTITY, //422
+	REQUEST_TOO_LONG, //413
 } = StatusCodes;
 
 // Do not change datadir
@@ -20,6 +21,11 @@ const datadir = "./data" as const;
 
 describe("REST API v1", function () {
 	let app: Application;
+	let datadir = "./.App.spects";
+
+	before(async () => {
+		await fs.mkdir(datadir, { recursive: true });
+	}); //ChatGPT
 
 	beforeEach(async () => {
 		app = await createApp({ datadir });
@@ -1243,4 +1249,326 @@ describe("REST API v1", function () {
 	});
 	/*
 	 */
+
+	//search 422 missing kind field
+	it("POST /api/v1/search - Expected: 422 - Missing kind field", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				query: {
+					WHERE: {},
+					OPTIONS: {
+						COLUMNS: ["dept", "avg"],
+						ORDER: "year",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "required but missing",
+			},
+		});
+	});
+
+	//Search invalid kind
+	it("POST /api/v1/search - Expected: 422 - Invalid kind field", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "invalid_course",
+				query: {
+					WHERE: {},
+					OPTIONS: {
+						COLUMNS: ["dept", "avg"],
+						ORDER: "year",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings",
+			},
+		});
+	});
+
+	//Search missing query field
+	it("POST /api/v1/search - Expected: 422 -  missing query field", async () => {
+		const res = await request(app).post("/api/v1/search").send({
+			kind: "course_offerings",
+		});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				query: "required but missing",
+			},
+		});
+	});
+
+	//Search invalid query field
+	it("POST /api/v1/search - Expected: 422 -  invalid query field", async () => {
+		const res = await request(app).post("/api/v1/search").send({
+			kind: "course_offerings",
+			WHERE: {},
+			query: "invalid",
+		});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				query: "expected an object",
+			},
+		});
+	});
+
+	//Search too many results
+	it("POST /api/v1/search - Expected: 413 -  too many results", async () => {
+		type Offering = {
+			dept: string;
+			avg: number;
+			pass: number;
+			fail: number;
+			audit: number;
+			year: number;
+			instructor: string;
+		};
+		const lotsOfCourses: Offering[] = Array.from({ length: 5001 }, (_, i) => ({
+			dept: "cpsc",
+			code: String(100 + (i % 50)),
+			title: "Computer Science",
+			instructor: "Bob",
+			year: 2021,
+			avg: 50,
+			pass: 20,
+			fail: 19,
+			audit: 0,
+		}));
+
+		await fs.writeFile(
+			datadir,
+			JSON.stringify(lotsOfCourses, null, 2), // pretty format
+			"utf-8"
+		);
+
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					WHERE: {},
+					OPTIONS: {
+						COLUMNS: ["dept"],
+						ORDER: "year",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", REQUEST_TOO_LONG);
+		expect(res).to.have.deep.property("body", {
+			error: "Too many results",
+			message: "Query would return more than 5000 results",
+			limit: 5000,
+		});
+	});
+
+	//Search max results
+	it("POST /api/v1/search - Expected: 200 -  max results", async () => {
+		type Offering = {
+			dept: string;
+			avg: number;
+			pass: number;
+			fail: number;
+			audit: number;
+			year: number;
+			instructor: string;
+		};
+		const lotsOfCourses: Offering[] = Array.from({ length: 5000 }, (_, i) => ({
+			dept: "cpsc",
+			code: String(100 + (i % 50)),
+			title: "Computer Science",
+			instructor: "Bob",
+			year: 2021,
+			avg: 50,
+			pass: 20,
+			fail: 19,
+			audit: 0,
+		}));
+
+		await fs.writeFile(
+			datadir,
+			JSON.stringify(lotsOfCourses, null, 2), // pretty format
+			"utf-8"
+		);
+
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				WHERE: {},
+				query: {
+					OPTIONS: {
+						COLUMNS: ["dept", "code", "title", "instructor", "avg", "pass", "fail", "audit", "year"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", { lotsOfCourses });
+		expect(res).to.be.an("array");
+		expect(res.body.length).to.equal(5000);
+	});
+
+	//Search missing WHERE
+	it("POST /api/v1/search - Expected: 400 -  Missing WHERE", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					OPTIONS: {
+						COLUMNS: ["dept"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid query",
+			message: "Missing WHERE",
+		});
+	});
+
+	//Search missing COLUMNS key
+	it("POST /api/v1/search - Expected: 400 -  Missing COLUMNS key", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				WHERE: {},
+				query: {
+					OPTIONS: {
+						COLUMNS: ["invalid"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid query",
+			message: "Unknown key in COLUMNS",
+		});
+	});
+
+	//Search invalid ORDER
+	it("POST /api/v1/search - Expected: 400 -  Invalid ORDER", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				WHERE: {},
+				query: {
+					OPTIONS: {
+						COLUMNS: ["dept"],
+						ORDER: "invalid",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid query",
+			message: "ORDER must be a key in COLUMNS",
+		});
+	});
+
+	//Basic query simple
+	it("POST /api/v1/search - Expected: 200 -  Basic Query", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				WHERE: {
+					GT: { avg: 80 },
+				},
+				query: {
+					OPTIONS: {
+						COLUMNS: ["dept", "avg"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", OK);
+		expect(res.body).to.be.an("array");
+		for (const row of res.body) {
+			expect(row).to.have.all.keys("dept", "avg");
+			expect(row.avg).to.be.greaterThan(80);
+		}
+		for (let i = 1; i < res.body.length; i++) {
+			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
+		}
+	});
+
+	//Complex query
+	it("POST /api/v1/search - Expected: 200 -  Complex Query", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					WHERE: {
+						OR: [
+							{
+								AND: [
+									{
+										GT: {
+											avg: 90,
+										},
+									},
+									{
+										IS: {
+											dept: "adhe",
+										},
+									},
+								],
+							},
+							{
+								EQ: {
+									avg: 95,
+								},
+							},
+						],
+					},
+					OPTIONS: {
+						COLUMNS: ["dept", "avg", "year"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", OK);
+		expect(res.body).to.be.an("array");
+		for (const row of res.body) {
+			expect(row).to.have.all.keys("dept", "avg", "year");
+			if (row.dept === "adhe") {
+				expect(row.avg).to.be.greaterThan(90);
+			} else {
+				expect(row.avg).to.be.equal(95);
+			}
+		}
+		for (let i = 1; i < res.body.length; i++) {
+			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
+		}
+	});
 });
