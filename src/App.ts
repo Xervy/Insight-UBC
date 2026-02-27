@@ -570,17 +570,91 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	//Retrieve upload statistics
-	app.get("/api/v1/datasets/:id", async (req, res): Promise<void> => {
-		const id = req.params.id;
-		const datas = await readUploads();
-		const data = datas.find((j) => j.id === id);
+	// app.get("/api/v1/datasets/:id", async (req, res): Promise<void> => {
+	// 	const id = req.params.id;
+	// 	const datas = await readUploads();
+	// 	const data = datas.find((j) => j.id === id);
 
-		if (!data) {
-			res.status(404).json({ error: "Not found", message: "no dataset with id 'upload_12345'" });
+	// 	if (!data) {
+	// 		res.status(404).json({ error: "Not found", message: "no dataset with id 'upload_12345'" });
+	// 		return;
+	// 	}
+
+	// 	res.status(200).json(data);
+	// });
+	app.get("/api/v1/datasets/:dataset", async (req, res) => {
+		const datasetID = req.params.dataset;
+		let found = false;
+		const foundUpload = bulkUploads.find((upload) => upload.id == datasetID);
+
+		if (!foundUpload) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no dataset with id '${datasetID}'`,
+			});
 			return;
 		}
 
-		res.status(200).json(data);
+		if (foundUpload.status == "processing") {
+			res.status(200).json({
+				id: datasetID,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			return;
+		}
+		if (foundUpload.status == "failed") {
+			res.status(200).json({
+				id: datasetID,
+				status: "failed",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Data is not in a valid zip format",
+			});
+			return;
+		}
+		if (foundUpload!.status == "completed") {
+			res.status(200).json({
+				id: datasetID,
+				status: "completed",
+				kind: "course_offerings",
+				stats: {
+					files_total: foundUpload.files_total,
+					files_processed: foundUpload.files_processed,
+					files_skipped: foundUpload.files_skipped,
+					courses_seen: foundUpload.courses_seen,
+					courses_added: foundUpload.courses_added,
+					courses_modified: foundUpload.courses_modified,
+					sections_seen: foundUpload.sections_seen,
+					sections_added: foundUpload.sections_added,
+					sections_modified: foundUpload.sections_modified,
+				},
+				message: "Dataset processing complete",
+			});
+			return;
+		}
 	});
 
 	// app.post("/api/v1/datasets", upload.single("archive"), async (req, res): Promise<void> => {
@@ -955,6 +1029,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		await writeUpload(datas);
 	}
 
-	
+
 	return app;
 }
