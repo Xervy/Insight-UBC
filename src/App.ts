@@ -1,8 +1,10 @@
 import fs from "fs/promises";
 import express from "express";
 import cors from "cors";
+
 import multer from "multer";
-//b
+import JSZip from "jszip";
+
 /**
  * Express application.
  */
@@ -64,7 +66,30 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		[k: string]: any;
 	};
 
+	type Offering = {
+		id: number;
+		Course: string;
+		Title: string;
+		Professor: string;
+		Subject: string;
+		Section: string;
+		Year: string;
+		Avg: number;
+		Pass: number;
+		Fail: number;
+		Audit: number;
+	};
+	type Upload = {
+		id: string;
+		status: "processing" | "completed" | "failed";
+		kind: string;
+		stats?: Record<string, number>;
+		message?: string;
+	};
+
 	const DATA_FILE = "data.json";
+
+	const UPLOAD_FILE = "uploadFile.json";
 
 	// Basic message to verify REST API is available
 	// You can see the message by going to http://localhost:<port>/api
@@ -81,9 +106,26 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	}
 
+	async function readUploads(): Promise<Upload[]> {
+		try {
+			const data = await fs.readFile(UPLOAD_FILE, "utf-8");
+			return JSON.parse(data);
+		} catch {
+			return [];
+		}
+	}
+
 	async function writeData(data: any[]): Promise<void> {
 		await fs.writeFile(
 			DATA_FILE,
+			JSON.stringify(data, null, 2), // pretty format
+			"utf-8"
+		);
+	}
+
+	async function writeUpload(data: any[]): Promise<void> {
+		await fs.writeFile(
+			UPLOAD_FILE,
 			JSON.stringify(data, null, 2), // pretty format
 			"utf-8"
 		);
@@ -102,6 +144,61 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	function isNum(n: unknown): n is number {
 		return typeof n === "number" && Number.isFinite(n);
+	}
+
+	function courseOffering(course: any): Offering | null {
+		const required = [
+			"id",
+			"Course",
+			"Title",
+			"Professor",
+			"Subject",
+			"Section",
+			"Year",
+			"Avg",
+			"Pass",
+			"Fail",
+			"Audit",
+		] as const;
+		for (const req of required) {
+			if (!(req in course)) return null;
+		}
+
+		const id = Number(course.id);
+		const Avg = Number(course.Avg);
+		const Pass = Number(course.Pass);
+		const Fail = Number(course.Fail);
+		const Audit = Number(course.Audit);
+
+		if (
+			!Number.isFinite(id) ||
+			typeof course.Course !== "string" ||
+			typeof course.Title !== "string" ||
+			typeof course.Professor !== "string" ||
+			typeof course.Subject !== "string" ||
+			typeof course.Section !== "string" ||
+			typeof course.Year !== "string" ||
+			!Number.isFinite(Avg) ||
+			!Number.isFinite(Pass) ||
+			!Number.isFinite(Fail) ||
+			!Number.isFinite(Audit)
+		) {
+			return null;
+		}
+
+		return {
+			id,
+			Course: course.Course,
+			Title: course.Title,
+			Professor: course.Professor,
+			Subject: course.Subject,
+			Section: course.Section,
+			Year: course.Year,
+			Avg,
+			Pass,
+			Fail,
+			Audit,
+		};
 	}
 
 	//Retrieve a list of courses
@@ -346,5 +443,187 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.status(200).json(sectionDelete);
 	});
 
+	//Retrieve upload statistics
+	app.get("/api/v1/datasets/:id", async (req, res): Promise<void> => {
+		const id = req.params.id;
+		const datas = await readUploads();
+		const data = datas.find((j) => j.id === id);
+
+		if (!data) {
+			res.status(404).json({ error: "Not found", message: "no dataset with id 'upload_12345'" });
+			return;
+		}
+
+		res.status(200).json(data);
+	});
+
+	app.post("/api/v1/datasets", upload.single("archive"), async (req, res): Promise<void> => {
+		const kind = req.body.kind;
+		if (kind !== "course_offerings" || !req.file) {
+			res.status(422).json({ error: "Validation failed" });
+			return;
+		}
+		const dataId = `upload_${Date.now()}_${Math.random().toString(16).slice(2)}`; //ChatGPT
+		const data: Upload = {
+			id: dataId,
+			status: "processing",
+			kind: "course_offerings",
+			message: "Dataset accepted for processing",
+		};
+
+		const datas = await readUploads();
+		datas.push(data);
+		await writeUpload(datas);
+
+		res.status(202).json(data);
+
+		setImmediate(() => processDataset(dataId, req.file!.buffer).catch(() => void 0)); //ChatGPT
+	});
+
+	async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
+		const datas = await readUploads();
+		const data = datas.find((j) => j.id === dataId);
+		if (!data) return;
+
+		const stats = {
+			files_total: 0,
+			files_processed: 0,
+			files_skipped: 0,
+			courses_seen: 0,
+			courses_added: 0,
+			courses_modified: 0,
+			sections_seen: 0,
+			sections_added: 0,
+			sections_modified: 0,
+		}; //ChatGPT
+
+		let zip: JSZip;
+		try {
+			zip = await JSZip().loadAsync(zipBuffer);
+		} catch {
+			data.status = "failed";
+			data.stats = stats;
+			await writeUpload(datas);
+			return;
+		} //ChatGPT
+
+		const checkRoot = Object.keys(zip.files).some((name) => name.startsWith("courses/")); //ChatGPT
+		if (!checkRoot) {
+			data.status = "failed";
+			data.stats = stats;
+			await writeUpload(datas);
+			return;
+		}
+
+		const courseName = Object.keys(zip.files).filter(
+			(name) => name.startsWith("courses/") && !zip.files[name].dir && name.toLowerCase().endsWith(".json")
+		);
+		const offerings: Offering[] = [];
+		stats.files_total = courseName.length;
+
+		for (const name of courseName) {
+			try {
+				const text = await zip.files[name].async("string");
+				const parsed = JSON.parse(text);
+				if (!Array.isArray(parsed.result || !parsed)) {
+					stats.files_skipped = stats.files_skipped + 1;
+					continue;
+				}
+				stats.files_processed = stats.files_processed + 1;
+				for (const result of parsed.result) {
+					const offer = courseOffering(result);
+					if (offer) offerings.push(offer);
+				}
+			} catch {
+				stats.files_skipped = stats.files_skipped + 1;
+			}
+		}
+		const courseData = await readData();
+		const courseMap = new Map<string, Course>();
+		for (const course of courseData) {
+			courseMap.set(course.id, course);
+		}
+
+		for (const offer of offerings) {
+			stats.courses_seen = stats.courses_seen + 1;
+			const courseId = `${offer.Subject}${offer.Course}`; //ChatGPT
+			const current = courseMap.get(courseId);
+
+			if (!current) {
+				const newCourse: Course = {
+					id: courseId,
+					code: offer.Course,
+					dept: offer.Subject,
+					title: offer.Title,
+					sections: [],
+				};
+				courseMap.set(courseId, newCourse);
+				courseData.push(newCourse);
+				stats.courses_added = stats.courses_added + 1;
+			} else {
+				let updated = false;
+				if (current.code != offer.Course) {
+					current.code = offer.Course;
+					updated = true;
+				}
+
+				if (current.dept != offer.Subject) {
+					current.dept = offer.Subject;
+					updated = true;
+				}
+
+				if (current.title != offer.Title) {
+					current.title = offer.Title;
+					updated = true;
+				}
+
+				if (updated) stats.courses_modified = stats.courses_modified + 1;
+				if (!Array.isArray(current.sections)) current.sections = [];
+			}
+		}
+
+		for (const offer of offerings) {
+			stats.courses_seen = stats.courses_seen + 1;
+			const courseId = `${offer.Subject}${offer.Course}`;
+			const course = courseMap.get(courseId);
+			if (!course) continue;
+			if (!Array.isArray(course.sections)) course.sections = [];
+			const secId = String(offer.id);
+			const currSecId = course.sections.findIndex((s) => s.id === secId);
+			const newSection: Section = {
+				id: secId,
+				instructor: offer.Professor,
+				year: Number.isFinite(Number.parseInt(offer.Year, 10)) ? Number.parseInt(offer.Year, 10) : 1900,
+				avg: offer.Avg,
+				pass: offer.Pass,
+				fail: offer.Fail,
+				audit: offer.Audit,
+			};
+			if (currSecId === -1) {
+				course.sections.push(newSection);
+				stats.sections_added = stats.sections_added + 1;
+			} else {
+				const current = course.sections[currSecId];
+				const updated =
+					current.instructor !== newSection.instructor ||
+					current.year !== newSection.year ||
+					current.avg !== newSection.avg ||
+					current.pass !== newSection.pass ||
+					current.fail !== newSection.fail ||
+					current.audit !== newSection.audit;
+				if (updated) {
+					course.sections[currSecId] = newSection;
+					stats.sections_modified = stats.sections_modified + 1;
+				}
+			}
+		}
+		await writeData(courseData);
+
+		data.status = "completed";
+		data.stats = stats;
+		data.message = "Dataset processing complete";
+
+		await writeUpload(datas);
+	}
 	return app;
 }
