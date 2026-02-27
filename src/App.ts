@@ -6,7 +6,14 @@ import multer from "multer";
 import JSZip from "jszip";
 
 import { Course, Section, Offering, Upload } from "./Types";
-import { CourseCreateError, UpdateCourseLink, UpdateListOfCoursesLinks } from "./Helpers";
+import {
+	CourseCreateError,
+	SectionCreateError,
+	UpdateCourseLink,
+	UpdateListOfCoursesLinks,
+	UpdateListOfSectionsLinks,
+	UpdateSectionLink,
+} from "./Helpers";
 
 /**
  * Express application.
@@ -301,11 +308,11 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		data.splice(index, 1);
 		await writeData(data);
 		res.status(200).json({
-			"id": courseDelete.id,
-			"title": courseDelete.title,
-			"dept": courseDelete.dept,
-			"code": courseDelete.code,
-			"sections": courseDelete.sections.length
+			id: courseDelete.id,
+			title: courseDelete.title,
+			dept: courseDelete.dept,
+			code: courseDelete.code,
+			sections: courseDelete.sections.length,
 		});
 	});
 
@@ -318,8 +325,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		if (!course) {
 			res.status(404).json({
-				"error": "Not found",
-				"message": `no course with id '${id}'`
+				error: "Not found",
+				message: `no course with id '${id}'`,
 			});
 			return;
 		}
@@ -332,7 +339,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		let limit = parseInt(req.query.limit as string);
 		let offset = parseInt(req.query.offset as string);
-		
+
 		if (isNaN(limit)) {
 			limit = 100;
 		}
@@ -374,11 +381,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		);
 		const items = sortedSection.slice(offset, offset + limit);
 
+		let updatedLinks = UpdateListOfSectionsLinks(items, course);
+
 		res.status(200).json({
 			total: sections.length,
 			limit,
 			offset,
-			items,
+			items: updatedLinks,
 		});
 	});
 
@@ -391,7 +400,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const course = data.find((c) => c.id === courseId);
 
 		if (!course) {
-			res.status(404).json({ error: "Course not found" });
+			res.status(404).json({
+				error: "Not found",
+				message: `no course with id '${courseId}'`,
+			});
 			return;
 		}
 
@@ -399,12 +411,21 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const section = sections.find((s) => String(s.id) === sectionId);
 
 		if (!section) {
-			res.status(404).json({ error: "Not found" });
+			res.status(404).json({
+				error: "Not found",
+				message: `no section with id '${sectionId}'`,
+			});
 			return;
 		}
 
 		res.status(200).json({
-			...section,
+			id: section.id,
+			instructor: section.instructor,
+			year: section.year,
+			avg: section.avg,
+			pass: section.pass,
+			fail: section.fail,
+			audit: section.audit,
 			links: {
 				self: `/api/v1/courses/${courseId}/sections/${sectionId}`,
 				course: `/api/v1/courses/${courseId}`,
@@ -418,48 +439,101 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const courseId = req.params.course;
 		const sectionId = req.params.section;
 		const course = data.find((c) => c.id === courseId);
+		const body = req.body;
 
 		if (!course) {
-			res.status(404).json({ error: "Course not found" });
+			res.status(404).json({
+				error: "Not found",
+				message: `no course with id '${courseId}'`,
+			});
 			return;
 		}
 		if (!Array.isArray(course.sections)) course.sections = [];
 
-		const { instructor, year, avg, pass, fail, audit } = req.body ?? {};
-		const yearCheck = isInt(year) && /^(19|20)\d{2}$/.test(String(year));
-		const avgCheck = isNum(avg) && avg >= 0 && avg <= 100;
-		const check = (x: unknown) => isInt(x) && x >= 0;
-		if (
-			typeof instructor != "string" ||
-			instructor.length === 0 ||
-			!yearCheck ||
-			!avgCheck ||
-			!check(pass) ||
-			!check(fail) ||
-			!check(audit)
-		) {
-			res.status(422).json({ error: "Validation failed" });
+		const errorRes = SectionCreateError(body);
+		if (!(typeof errorRes === "boolean")) {
+			res.status(422).json(errorRes);
 			return;
 		}
 
-		const newSection: Section = { id: sectionId, instructor, year, avg, pass, fail, audit };
+		// const { instructor, year, avg, pass, fail, audit } = req.body ?? {};
+		// const yearCheck = isInt(year) && /^(19|20)\d{2}$/.test(String(year));
+		// const avgCheck = isNum(avg) && avg >= 0 && avg <= 100;
+		// const check = (x: unknown) => isInt(x) && x >= 0;
+		// if (
+		// 	typeof instructor != "string" ||
+		// 	instructor.length === 0 ||
+		// 	!yearCheck ||
+		// 	!avgCheck ||
+		// 	!check(pass) ||
+		// 	!check(fail) ||
+		// 	!check(audit)
+		// ) {
+		// 	res.status(422).json({ error: "Validation failed" });
+		// 	return;
+		// }
 
-		const index = course.sections.findIndex((s) => String(s.id) === sectionId);
-		if (index === -1) {
-			course.sections.push(newSection);
+		const alreadyExists = course.sections.find((section) => section.id == sectionId);
+		if (alreadyExists) {
+			// SC 204
+			alreadyExists.instructor = body.instructor;
+			alreadyExists.year = body.year;
+			alreadyExists.avg = body.avg;
+			alreadyExists.pass = body.pass;
+			alreadyExists.fail = body.fail;
+			alreadyExists.audit = body.audit;
 			await writeData(data);
-			res.status(201).json({
-				...newSection,
-				links: {
-					self: `/api/v1/courses/${courseId}/sections/${sectionId}`,
-					course: `/api/v1/courses/${courseId}`,
-				},
-			});
+			res.status(204).send();
 			return;
 		}
-		course.sections[index] = newSection;
+
+		// SC 201
+		const toPut = {
+			id: sectionId,
+			instructor: body.instructor,
+			year: body.year,
+			avg: body.avg,
+			pass: body.pass,
+			fail: body.fail,
+			audit: body.audit,
+		};
+		course.sections.push(toPut);
 		await writeData(data);
-		res.status(204).send();
+		const response = UpdateSectionLink(toPut, course);
+		res.status(201).json(response);
+
+		// const newSection: Section = {
+		// 	id: sectionId,
+		// 	instructor: req.body.instructor,
+		// 	year: req.body.year,
+		// 	avg: req.body.avg,
+		// 	pass: req.body.pass,
+		// 	fail: req.body.fail,
+		// 	audit: req.body.audit,
+		// };
+
+		// const index = course.sections.findIndex((s) => String(s.id) === sectionId);
+		// if (index === -1) {
+		// 	course.sections.push(newSection);
+		// 	await writeData(data);
+		// 	res.status(201).json({
+		// 		id: sectionId,
+		// 		instructor: req.body.instructor,
+		// 		year: req.body.year,
+		// 		avg: req.body.avg,
+		// 		pass: req.body.pass,
+		// 		fail: req.body.fail,
+		// 		audit: req.body.audit,
+		// 		links: {
+		// 			self: `/api/v1/courses/${courseId}/sections/${sectionId}`,
+		// 			course: `/api/v1/courses/${courseId}`,
+		// 		},
+		// 	});
+		// 	return;
+		// }
+		// course.sections[index] = newSection;
+		// await writeData(data);
+		// res.status(204).send();
 	});
 
 	//Remove a section from a course
@@ -470,14 +544,20 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		const course = data.find((c) => String(c.id) === courseId);
 		if (!course || !Array.isArray(course.sections)) {
-			res.status(404).json({ error: "Not found" });
+			res.status(404).json({
+				error: "Not found",
+				message: `no course with id '${courseId}'`,
+			});
 			return;
 		}
 
-		const index = data.findIndex((s) => String(s.id) === sectionId);
+		const index = course.sections.findIndex((s) => String(s.id) === sectionId);
 
 		if (index === -1) {
-			res.status(404).json({ error: "Not found" });
+			res.status(404).json({
+				error: "Not found",
+				message: `no section with id '${sectionId}'`,
+			});
 			return;
 		}
 		const sectionDelete = course.sections[index];

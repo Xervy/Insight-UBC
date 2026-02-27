@@ -770,7 +770,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -833,7 +833,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -896,7 +896,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -943,7 +943,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -990,7 +990,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -1037,7 +1037,7 @@ describe("REST API v1", function () {
 			},
 		});
 
-		const res = await request(app).get("/api/v1/courses");
+		const res = await request(app).get("/api/v1/courses/cpsc310/sections");
 		expect(res).to.have.deep.property("body", {
 			total: 0,
 			limit: 100,
@@ -1087,11 +1087,18 @@ describe("REST API v1", function () {
 			fail: 0,
 			audit: 0,
 		});
-		expect(lo).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(lo).to.have.property("status", CREATED);
 		expect(lo).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				avg: "required but missing",
+			id: "21w201",
+			instructor: "holmes, reid",
+			year: 1900,
+			avg: 0,
+			pass: 0,
+			fail: 0,
+			audit: 0,
+			links: {
+				self: "/api/v1/courses/cpsc310/sections/21w201",
+				course: "/api/v1/courses/cpsc310",
 			},
 		});
 
@@ -1103,11 +1110,18 @@ describe("REST API v1", function () {
 			fail: 1,
 			audit: 1,
 		});
-		expect(hi).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(hi).to.have.property("status", CREATED);
 		expect(hi).to.have.deep.property("body", {
-			error: "Validation failed",
-			fields: {
-				avg: "expected a number between 0 and 100",
+			id: "21w202",
+			instructor: "bradley, nick",
+			year: 2099,
+			avg: 100,
+			pass: 1,
+			fail: 1,
+			audit: 1,
+			links: {
+				self: "/api/v1/courses/cpsc310/sections/21w202",
+				course: "/api/v1/courses/cpsc310",
 			},
 		});
 
@@ -1161,7 +1175,7 @@ describe("REST API v1", function () {
 			code: "310",
 		});
 
-		const next = request(app).del("/api/v1/courses/cpsc310/sections/21w201");
+		const next = await request(app).del("/api/v1/courses/cpsc310/sections/21w201");
 		expect(next).to.have.property("status", NOT_FOUND);
 		expect(next).to.have.deep.property("body", {
 			error: "Not found",
