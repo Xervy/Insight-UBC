@@ -9,6 +9,7 @@ const {
 	OK, // 200
 	// Other common codes are:
 	CREATED, // 201
+	ACCEPTED, // 202
 	NO_CONTENT, // 204
 	NOT_FOUND, // 404
 	BAD_REQUEST, // 400
@@ -20,13 +21,166 @@ const datadir = "./data" as const;
 
 describe("REST API v1", function () {
 	let app: Application;
+	let idSet: Set<String>;
 
 	beforeEach(async () => {
 		app = await createApp({ datadir });
+		idSet = new Set<String>();
 	});
 
 	afterEach(async () => {
 		await fs.rm(datadir, { recursive: true, force: true });
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Missing", async () => {
+		const uploadRes = await request(app).post("/api/v1/datasets");
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "required but missing",
+				archive: "required but missing",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Expected Different", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "yeet")
+			.attach("archive", Buffer.alloc(0), "courses.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings",
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Mixed", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", Buffer.alloc(0), "courses.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("GET /api/v1/datasets/none - Expected: 404", async () => {
+		const res = await request(app).get("/api/v1/datasets/none");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no dataset with id 'none'",
+		});
+	});
+
+	it("GET /api/v1/datasets/[uploadID] - Expected: 200", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/item1.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "completed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 1,
+				files_processed: 1,
+				files_skipped: 0,
+				courses_seen: 2,
+				courses_added: 1,
+				courses_modified: 1,
+				sections_seen: 2,
+				sections_added: 2,
+				sections_modified: 0,
+			},
+			message: "Dataset processing complete",
+		});
+	});
+
+	it("GET /api/v1/datasets/[uploadID] - Expected: 200 - 3 Files", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/3_files.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "completed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 3,
+				files_processed: 3,
+				files_skipped: 0,
+				courses_seen: 11,
+				courses_added: 5,
+				courses_modified: 6,
+				sections_seen: 11,
+				sections_added: 7,
+				sections_modified: 4,
+			},
+			message: "Dataset processing complete",
+		});
 	});
 
 	it("GET /api should respond with status OK and text 'App is running!'", async () => {
