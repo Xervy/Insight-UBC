@@ -177,3 +177,7 @@ export function SectionCreateError(body: any) {
 	}
 	return isError;
 }
+
+export function generateSectionID() {
+    return Date.now();
+}

@@ -5,9 +5,10 @@ import cors from "cors";
 import multer from "multer";
 import JSZip from "jszip";
 
-import { Course, Section, Offering, Upload } from "./Types";
+import { Course, Section, Offering, Upload, UploadStats } from "./Types";
 import {
 	CourseCreateError,
+	generateSectionID,
 	SectionCreateError,
 	UpdateCourseLink,
 	UpdateListOfCoursesLinks,
@@ -638,8 +639,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			message: "Dataset accepted for processing",
 		});
 
-		const storageFile = await fs.readFile(datafile, "utf-8");
-		const jsonFile = JSON.parse(storageFile) as Course[];
+		const courses = await readData();
 
 		const stats = {
 			id: id.toString(),
@@ -725,7 +725,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					sectionYear = 1900;
 				}
 
-				for (const course of jsonFile) {
+				for (const course of courses) {
 					if (course.id == courseID) {
 						// Make Updates
 						course.code = record.Course;
@@ -778,7 +778,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				}
 				// If the Course does not already exist, add it to jsonFile
 				if (!sectionWasAdded) {
-					jsonFile.push({
+					courses.push({
 						id: courseID,
 						title: record.Title,
 						dept: record.Subject,
@@ -803,7 +803,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.courses_seen = stats.courses_added + stats.courses_modified;
 		stats.sections_seen = stats.sections_added + stats.sections_modified;
 		// Write Json to file
-		await fs.writeFile(datafile, JSON.stringify(jsonFile), "utf-8");
+		await fs.writeFile(datafile, JSON.stringify(courses), "utf-8");
 		stats.status = "completed";
 	});
 
