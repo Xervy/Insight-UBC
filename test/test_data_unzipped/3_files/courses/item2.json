@@ -1,0 +1,43 @@
+{
+    "result": [
+        {
+            "id": 2,
+            "Course": "100",
+            "Title": "Derivatives",
+            "Professor": "Aloe Peesha",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2025",
+            "Avg": 75,
+            "Pass": 100,
+            "Fail": 50,
+            "Audit": 0
+        },
+        {
+            "id": 3,
+            "Course": "101",
+            "Title": "Integrals",
+            "Professor": "Poo Key",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2025",
+            "Avg": 75,
+            "Pass": 100,
+            "Fail": 50,
+            "Audit": 0
+        },
+        {
+            "id": 4,
+            "Course": "112",
+            "Title": "Algebra",
+            "Professor": "Pee Dawg",
+            "Subject": "MATH",
+            "Section": "100",
+            "Year": "2025",
+            "Avg": 75,
+            "Pass": 100,
+            "Fail": 50,
+            "Audit": 0
+        }
+    ]
+}
