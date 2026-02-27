@@ -153,13 +153,13 @@ describe("REST API v1", function () {
 			offset: 0,
 			items: [
 				{
-					id: "cpsc210",
-					title: "Software Construction",
+					id: "cpsc310",
+					title: "Introduction to Software Engineering",
 					dept: "Computer Science",
-					code: "210",
+					code: "310",
 					links: {
-						self: "/api/v1/courses/cpsc210",
-						sections: "/api/v1/courses/cpsc210/sections",
+						self: "/api/v1/courses/cpsc310",
+						sections: "/api/v1/courses/cpsc310/sections",
 					},
 				},
 			],
@@ -200,13 +200,13 @@ describe("REST API v1", function () {
 			offset: 0,
 			items: [
 				{
-					id: "cpsc210",
-					title: "Software Construction",
+					id: "cpsc310",
+					title: "Introduction to Software Engineering",
 					dept: "Computer Science",
-					code: "210",
+					code: "310",
 					links: {
-						self: "/api/v1/courses/cpsc210",
-						sections: "/api/v1/courses/cpsc210/sections",
+						self: "/api/v1/courses/cpsc310",
+						sections: "/api/v1/courses/cpsc310/sections",
 					},
 				},
 			],
@@ -490,6 +490,11 @@ describe("REST API v1", function () {
 	});
 
 	it("GET /api/v1/courses/cpsc310/sections - Bounds -1", async () => {
+		await request(app).put("/api/v1/courses/cpsc310").send({
+			title: "Introduction to Software Engineering",
+			dept: "Computer Science",
+			code: "310",
+		});
 		const resLow = await request(app).get("/api/v1/courses/cpsc310/sections?limit=0&offset=-1");
 		expect(resLow).to.have.property("status", BAD_REQUEST);
 		expect(resLow).to.have.deep.property("body", {
