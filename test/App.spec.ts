@@ -15,7 +15,7 @@ const {
 	NOT_FOUND, // 404
 	BAD_REQUEST, // 400
 	UNPROCESSABLE_ENTITY, //422
-	REQUEST_TOO_LONG //413
+	REQUEST_TOO_LONG, //413
 } = StatusCodes;
 
 // Do not change datadir
@@ -39,8 +39,7 @@ describe("REST API v1", function () {
 		await fs.rm(datadir, { recursive: true, force: true });
 	});
 
-
-		it("POST /api/v1/datasets - Expected: 422 - Missing", async () => {
+	it("POST /api/v1/datasets - Expected: 422 - Missing", async () => {
 		const uploadRes = await request(app).post("/api/v1/datasets");
 		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
 		expect(uploadRes).to.have.deep.property("body", {
@@ -1425,7 +1424,7 @@ describe("REST API v1", function () {
 	/*
 	 */
 
-//Search invalid kind
+	//Search invalid kind
 	it("POST /api/v1/search - Expected: 422 - Invalid kind field", async () => {
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1449,7 +1448,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Search missing query field
+	//Search missing query field
 	it("POST /api/v1/search - Expected: 422 -  missing query field", async () => {
 		const res = await request(app).post("/api/v1/search").send({
 			kind: "course_offerings",
@@ -1464,7 +1463,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Search invalid query field
+	//Search invalid query field
 	it("POST /api/v1/search - Expected: 422 -  invalid query field", async () => {
 		const res = await request(app).post("/api/v1/search").send({
 			kind: "course_offerings",
@@ -1481,7 +1480,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Search too many results
+	//Search too many results
 	it("POST /api/v1/search - Expected: 413 -  too many results", async () => {
 		type Offering = {
 			dept: string;
@@ -1531,7 +1530,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Search max results
+	//Search max results
 	it("POST /api/v1/search - Expected: 200 -  max results", async () => {
 		type Offering = {
 			dept: string;
@@ -1579,7 +1578,7 @@ describe("REST API v1", function () {
 		expect(res.body.length).to.equal(5000);
 	});
 
-//Search missing WHERE
+	//Search missing WHERE
 	it("POST /api/v1/search - Expected: 400 -  Missing WHERE", async () => {
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1600,7 +1599,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Search missing COLUMNS key
+	//Search missing COLUMNS key
 	it("POST /api/v1/search - Expected: 400 -  Missing COLUMNS key", async () => {
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1622,7 +1621,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Search invalid ORDER
+	//Search invalid ORDER
 	it("POST /api/v1/search - Expected: 400 -  Invalid ORDER", async () => {
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1644,7 +1643,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-//Basic query simple
+	//Basic query simple
 	it("POST /api/v1/search - Expected: 200 -  Basic Query", async () => {
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1672,7 +1671,7 @@ describe("REST API v1", function () {
 		}
 	});
 
-//Complex query
+	//Complex query
 	it("POST /api/v1/search - Expected: 200 -  Complex Query", async () => {
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1724,5 +1723,3 @@ describe("REST API v1", function () {
 		}
 	});
 });
-
-

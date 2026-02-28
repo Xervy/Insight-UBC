@@ -1029,6 +1029,5 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		await writeUpload(datas);
 	}
 
-
 	return app;
 }
