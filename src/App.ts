@@ -47,6 +47,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	// Ensure the data directory exists
 	await fs.mkdir(datadir, { recursive: true });
 
+
+
 	// Configure multer to store file contents in memory
 	const upload = multer({ storage: multer.memoryStorage() });
 
@@ -60,6 +62,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	app.use(cors());
 
 	const DATA_FILE = datadir + "/data.json";
+
+	// await fs.access(DATA_FILE).catch(async (_err) => {
+	// 	await fs.writeFile(DATA_FILE, "[]", "utf-8");
+	// });
 
 	const UPLOAD_FILE = "uploadFile.json";
 
@@ -117,6 +123,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	function isNum(n: unknown): n is number {
 		return typeof n === "number" && Number.isFinite(n);
 	}
+
+	
 
 	function courseOffering(course: any): Offering | null {
 		const required = [
@@ -280,7 +288,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				sections: [],
 			} as Course;
 			data.push(courseToPush);
-			writeData(data);
+			await writeData(data);
 			const cleanedCourse = UpdateCourseLink(courseToPush);
 			res.status(201).json(cleanedCourse);
 			return;
@@ -290,7 +298,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		alreadyExists.dept = body.dept;
 		alreadyExists.code = body.code;
 		alreadyExists.sections = [];
-		writeData(data);
+		await writeData(data);
 		res.status(204).send();
 	});
 
@@ -631,7 +639,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					sections_added: 0,
 					sections_modified: 0,
 				},
-				message: "Data is not in a valid zip format",
+				message: foundUpload.message,
 			});
 			return;
 		}
@@ -753,6 +761,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			zip = await JSZip.loadAsync(zipBuffer);
 		} catch (e) {
 			stats.status = "failed";
+			stats.message = "Data is not in a valid zip format";
 			return;
 		}
 
@@ -795,6 +804,23 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				const courseID = record.Subject + record.Course;
 				const sectionID = record.id;
 				let sectionWasAdded = false;
+
+				if (record.id === undefined || record.Course === undefined 
+					|| record.Title === undefined || record.Professor === undefined 
+					|| record.Subject === undefined || record.Section === undefined
+					|| record.Year === undefined || record.Avg === undefined 
+					|| record.Pass === undefined || record.Fail === undefined 
+					|| record.Audit === undefined) {
+					continue;
+				}
+				 else if (!(typeof record.id === "number" && typeof record.Course =="string"
+					&& typeof record.Title =="string" && typeof record.Professor =="string"
+					&& typeof record.Subject =="string" && typeof record.Section =="string"
+					&& typeof record.Year =="string" && typeof record.Avg  == "number"
+					&& typeof record.Pass  == "number"
+					&& typeof record.Fail  == "number" && typeof record.Audit  == "number")) {
+						continue;
+				}
 
 				let sectionYear = Number(record.Year);
 				if (record.Section == "overall") {

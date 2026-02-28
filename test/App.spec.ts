@@ -5,6 +5,7 @@ import { StatusCodes } from "http-status-codes";
 import { Application, createApp } from "../src/App";
 import { NOTFOUND } from "dns";
 import path from "path";
+import { access } from "fs";
 
 const {
 	OK, // 200
@@ -38,6 +39,7 @@ describe("REST API v1", function () {
 	afterEach(async () => {
 		await fs.rm(datadir, { recursive: true, force: true });
 	});
+
 
 	it("POST /api/v1/datasets - Expected: 422 - Missing", async () => {
 		const uploadRes = await request(app).post("/api/v1/datasets");
@@ -82,6 +84,58 @@ describe("REST API v1", function () {
 		});
 	});
 
+	it("POST /api/v1/datasets - Expected: 202 - No Courses Folder", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/no_courses.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		expect(uploadRes).to.have.property("status", ACCEPTED);
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "failed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 0,
+				files_processed: 0,
+				files_skipped: 0,
+				courses_seen: 0,
+				courses_added: 0,
+				courses_modified: 0,
+				sections_seen: 0,
+				sections_added: 0,
+				sections_modified: 0,
+			},
+			message: "Missing root courses directory",
+		});
+	});
+
+
 	it("GET /api/v1/datasets/none - Expected: 404", async () => {
 		const res = await request(app).get("/api/v1/datasets/none");
 		expect(res).to.have.property("status", NOT_FOUND);
@@ -91,7 +145,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-	it("GET /api/v1/datasets/[uploadID] - Expected: 200", async () => {
+	it("GET /api/v1/datasets/[uploadID] - Expected: 202", async () => {
 		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/item1.zip"));
 		const uploadRes = await request(app)
 			.post("/api/v1/datasets")
@@ -141,7 +195,7 @@ describe("REST API v1", function () {
 		});
 	});
 
-	it("GET /api/v1/datasets/[uploadID] - Expected: 200 - 3 Files", async () => {
+	it("GET /api/v1/datasets/[uploadID] - Expected: 202 - 3 Files", async () => {
 		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/3_files.zip"));
 		const uploadRes = await request(app)
 			.post("/api/v1/datasets")
@@ -187,6 +241,136 @@ describe("REST API v1", function () {
 				sections_modified: 4,
 			},
 			message: "Dataset processing complete",
+		});
+		const check = await request(app).get("/api/v1/courses");
+		expect(check).to.have.property("status", OK);
+		expect(check).to.have.deep.property("body", {
+			"total": 5,
+			"limit": 100,
+			"offset": 0,
+			"items": [
+				{
+					"id": "CPSC210",
+					"title": "Object Oriented Programming",
+					"dept": "CPSC",
+					"code": "210",
+					"links": {
+						"self": "/api/v1/courses/CPSC210",
+						"sections": "/api/v1/courses/CPSC210/sections"
+					}
+				},
+				{
+					"id": "CPSC310",
+					"title": "Software Engineering",
+					"dept": "CPSC",
+					"code": "310",
+					"links": {
+						"self": "/api/v1/courses/CPSC310",
+						"sections": "/api/v1/courses/CPSC310/sections"
+					}
+				},
+				{
+					"id": "MATH100",
+					"title": "Derivatives",
+					"dept": "MATH",
+					"code": "100",
+					"links": {
+						"self": "/api/v1/courses/MATH100",
+						"sections": "/api/v1/courses/MATH100/sections"
+					}
+				},
+				{
+					"id": "MATH101",
+					"title": "Integrals",
+					"dept": "MATH",
+					"code": "101",
+					"links": {
+						"self": "/api/v1/courses/MATH101",
+						"sections": "/api/v1/courses/MATH101/sections"
+					}
+				},
+				{
+					"id": "MATH112",
+					"title": "Algebra",
+					"dept": "MATH",
+					"code": "112",
+					"links": {
+						"self": "/api/v1/courses/MATH112",
+						"sections": "/api/v1/courses/MATH112/sections"
+					}
+				}
+			]
+		});
+		const c310 = await request(app).get("/api/v1/courses/CPSC310/sections");
+		expect(c310).to.have.property("status", OK);
+		expect(c310).to.have.deep.property("body", {
+			"total": 2,
+			"limit": 100,
+			"offset": 0,
+			"items": [
+				{
+					"id": "0",
+					"instructor": "Nick Bradley",
+					"year": 2025,
+					"avg": 75,
+					"pass": 100,
+					"fail": 50,
+					"audit": 0,
+					"links": {
+						"self": "/api/v1/courses/CPSC310/sections/0",
+						"course": "/api/v1/courses/CPSC310"
+					}
+				},
+				{
+					"id": "1",
+					"instructor": "Nick Bradley",
+					"year": 2025,
+					"avg": 77,
+					"pass": 120,
+					"fail": 40,
+					"audit": 10,
+					"links": {
+						"self": "/api/v1/courses/CPSC310/sections/1",
+						"course": "/api/v1/courses/CPSC310"
+					}
+				}
+			]
+		});
+
+		const m112 = await request(app).get("/api/v1/courses/MATH112/sections");
+		expect(m112).to.have.property("status", OK);
+		expect(m112).to.have.deep.property("body", {
+			"total": 2,
+			"limit": 100,
+			"offset": 0,
+			"items": [
+				{
+					"id": "4",
+					"instructor": "Pee Dawg",
+					"year": 2021,
+					"avg": 90,
+					"pass": 166,
+					"fail": 10,
+					"audit": 2,
+					"links": {
+						"self": "/api/v1/courses/MATH112/sections/4",
+						"course": "/api/v1/courses/MATH112"
+					}
+				},
+				{
+					"id": "5",
+					"instructor": "Pee Dawg",
+					"year": 2021,
+					"avg": 90,
+					"pass": 166,
+					"fail": 10,
+					"audit": 2,
+					"links": {
+						"self": "/api/v1/courses/MATH112/sections/5",
+						"course": "/api/v1/courses/MATH112"
+					}
+				}
+			]
 		});
 	});
 
