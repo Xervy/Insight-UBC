@@ -47,8 +47,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	// Ensure the data directory exists
 	await fs.mkdir(datadir, { recursive: true });
 
-
-
 	// Configure multer to store file contents in memory
 	const upload = multer({ storage: multer.memoryStorage() });
 
@@ -123,8 +121,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	function isNum(n: unknown): n is number {
 		return typeof n === "number" && Number.isFinite(n);
 	}
-
-	
 
 	function courseOffering(course: any): Offering | null {
 		const required = [
@@ -805,21 +801,36 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				const sectionID = record.id;
 				let sectionWasAdded = false;
 
-				if (record.id === undefined || record.Course === undefined 
-					|| record.Title === undefined || record.Professor === undefined 
-					|| record.Subject === undefined || record.Section === undefined
-					|| record.Year === undefined || record.Avg === undefined 
-					|| record.Pass === undefined || record.Fail === undefined 
-					|| record.Audit === undefined) {
+				if (
+					record.id === undefined ||
+					record.Course === undefined ||
+					record.Title === undefined ||
+					record.Professor === undefined ||
+					record.Subject === undefined ||
+					record.Section === undefined ||
+					record.Year === undefined ||
+					record.Avg === undefined ||
+					record.Pass === undefined ||
+					record.Fail === undefined ||
+					record.Audit === undefined
+				) {
 					continue;
-				}
-				 else if (!(typeof record.id === "number" && typeof record.Course =="string"
-					&& typeof record.Title =="string" && typeof record.Professor =="string"
-					&& typeof record.Subject =="string" && typeof record.Section =="string"
-					&& typeof record.Year =="string" && typeof record.Avg  == "number"
-					&& typeof record.Pass  == "number"
-					&& typeof record.Fail  == "number" && typeof record.Audit  == "number")) {
-						continue;
+				} else if (
+					!(
+						typeof record.id === "number" &&
+						typeof record.Course == "string" &&
+						typeof record.Title == "string" &&
+						typeof record.Professor == "string" &&
+						typeof record.Subject == "string" &&
+						typeof record.Section == "string" &&
+						typeof record.Year == "string" &&
+						typeof record.Avg == "number" &&
+						typeof record.Pass == "number" &&
+						typeof record.Fail == "number" &&
+						typeof record.Audit == "number"
+					)
+				) {
+					continue;
 				}
 
 				let sectionYear = Number(record.Year);
@@ -1054,7 +1065,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		await writeUpload(datas);
 	}
-
 
 	return app;
 }

@@ -179,5 +179,5 @@ export function SectionCreateError(body: any) {
 }
 
 export function generateSectionID() {
-    return Date.now();
+	return Date.now();
 }

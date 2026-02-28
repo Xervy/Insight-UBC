@@ -16,7 +16,7 @@ const {
 	NOT_FOUND, // 404
 	BAD_REQUEST, // 400
 	UNPROCESSABLE_ENTITY, //422
-	REQUEST_TOO_LONG //413
+	REQUEST_TOO_LONG, //413
 } = StatusCodes;
 
 // Do not change datadir
@@ -39,7 +39,6 @@ describe("REST API v1", function () {
 	afterEach(async () => {
 		await fs.rm(datadir, { recursive: true, force: true });
 	});
-
 
 	it("POST /api/v1/datasets - Expected: 422 - Missing", async () => {
 		const uploadRes = await request(app).post("/api/v1/datasets");
@@ -134,7 +133,6 @@ describe("REST API v1", function () {
 			message: "Missing root courses directory",
 		});
 	});
-
 
 	it("GET /api/v1/datasets/none - Expected: 404", async () => {
 		const res = await request(app).get("/api/v1/datasets/none");
@@ -245,132 +243,132 @@ describe("REST API v1", function () {
 		const check = await request(app).get("/api/v1/courses");
 		expect(check).to.have.property("status", OK);
 		expect(check).to.have.deep.property("body", {
-			"total": 5,
-			"limit": 100,
-			"offset": 0,
-			"items": [
+			total: 5,
+			limit: 100,
+			offset: 0,
+			items: [
 				{
-					"id": "CPSC210",
-					"title": "Object Oriented Programming",
-					"dept": "CPSC",
-					"code": "210",
-					"links": {
-						"self": "/api/v1/courses/CPSC210",
-						"sections": "/api/v1/courses/CPSC210/sections"
-					}
+					id: "CPSC210",
+					title: "Object Oriented Programming",
+					dept: "CPSC",
+					code: "210",
+					links: {
+						self: "/api/v1/courses/CPSC210",
+						sections: "/api/v1/courses/CPSC210/sections",
+					},
 				},
 				{
-					"id": "CPSC310",
-					"title": "Software Engineering",
-					"dept": "CPSC",
-					"code": "310",
-					"links": {
-						"self": "/api/v1/courses/CPSC310",
-						"sections": "/api/v1/courses/CPSC310/sections"
-					}
+					id: "CPSC310",
+					title: "Software Engineering",
+					dept: "CPSC",
+					code: "310",
+					links: {
+						self: "/api/v1/courses/CPSC310",
+						sections: "/api/v1/courses/CPSC310/sections",
+					},
 				},
 				{
-					"id": "MATH100",
-					"title": "Derivatives",
-					"dept": "MATH",
-					"code": "100",
-					"links": {
-						"self": "/api/v1/courses/MATH100",
-						"sections": "/api/v1/courses/MATH100/sections"
-					}
+					id: "MATH100",
+					title: "Derivatives",
+					dept: "MATH",
+					code: "100",
+					links: {
+						self: "/api/v1/courses/MATH100",
+						sections: "/api/v1/courses/MATH100/sections",
+					},
 				},
 				{
-					"id": "MATH101",
-					"title": "Integrals",
-					"dept": "MATH",
-					"code": "101",
-					"links": {
-						"self": "/api/v1/courses/MATH101",
-						"sections": "/api/v1/courses/MATH101/sections"
-					}
+					id: "MATH101",
+					title: "Integrals",
+					dept: "MATH",
+					code: "101",
+					links: {
+						self: "/api/v1/courses/MATH101",
+						sections: "/api/v1/courses/MATH101/sections",
+					},
 				},
 				{
-					"id": "MATH112",
-					"title": "Algebra",
-					"dept": "MATH",
-					"code": "112",
-					"links": {
-						"self": "/api/v1/courses/MATH112",
-						"sections": "/api/v1/courses/MATH112/sections"
-					}
-				}
-			]
+					id: "MATH112",
+					title: "Algebra",
+					dept: "MATH",
+					code: "112",
+					links: {
+						self: "/api/v1/courses/MATH112",
+						sections: "/api/v1/courses/MATH112/sections",
+					},
+				},
+			],
 		});
 		const c310 = await request(app).get("/api/v1/courses/CPSC310/sections");
 		expect(c310).to.have.property("status", OK);
 		expect(c310).to.have.deep.property("body", {
-			"total": 2,
-			"limit": 100,
-			"offset": 0,
-			"items": [
+			total: 2,
+			limit: 100,
+			offset: 0,
+			items: [
 				{
-					"id": "0",
-					"instructor": "Nick Bradley",
-					"year": 2025,
-					"avg": 75,
-					"pass": 100,
-					"fail": 50,
-					"audit": 0,
-					"links": {
-						"self": "/api/v1/courses/CPSC310/sections/0",
-						"course": "/api/v1/courses/CPSC310"
-					}
+					id: "0",
+					instructor: "Nick Bradley",
+					year: 2025,
+					avg: 75,
+					pass: 100,
+					fail: 50,
+					audit: 0,
+					links: {
+						self: "/api/v1/courses/CPSC310/sections/0",
+						course: "/api/v1/courses/CPSC310",
+					},
 				},
 				{
-					"id": "1",
-					"instructor": "Nick Bradley",
-					"year": 2025,
-					"avg": 77,
-					"pass": 120,
-					"fail": 40,
-					"audit": 10,
-					"links": {
-						"self": "/api/v1/courses/CPSC310/sections/1",
-						"course": "/api/v1/courses/CPSC310"
-					}
-				}
-			]
+					id: "1",
+					instructor: "Nick Bradley",
+					year: 2025,
+					avg: 77,
+					pass: 120,
+					fail: 40,
+					audit: 10,
+					links: {
+						self: "/api/v1/courses/CPSC310/sections/1",
+						course: "/api/v1/courses/CPSC310",
+					},
+				},
+			],
 		});
 
 		const m112 = await request(app).get("/api/v1/courses/MATH112/sections");
 		expect(m112).to.have.property("status", OK);
 		expect(m112).to.have.deep.property("body", {
-			"total": 2,
-			"limit": 100,
-			"offset": 0,
-			"items": [
+			total: 2,
+			limit: 100,
+			offset: 0,
+			items: [
 				{
-					"id": "4",
-					"instructor": "Pee Dawg",
-					"year": 2021,
-					"avg": 90,
-					"pass": 166,
-					"fail": 10,
-					"audit": 2,
-					"links": {
-						"self": "/api/v1/courses/MATH112/sections/4",
-						"course": "/api/v1/courses/MATH112"
-					}
+					id: "4",
+					instructor: "Pee Dawg",
+					year: 2021,
+					avg: 90,
+					pass: 166,
+					fail: 10,
+					audit: 2,
+					links: {
+						self: "/api/v1/courses/MATH112/sections/4",
+						course: "/api/v1/courses/MATH112",
+					},
 				},
 				{
-					"id": "5",
-					"instructor": "Pee Dawg",
-					"year": 2021,
-					"avg": 90,
-					"pass": 166,
-					"fail": 10,
-					"audit": 2,
-					"links": {
-						"self": "/api/v1/courses/MATH112/sections/5",
-						"course": "/api/v1/courses/MATH112"
-					}
-				}
-			]
+					id: "5",
+					instructor: "Pee Dawg",
+					year: 2021,
+					avg: 90,
+					pass: 166,
+					fail: 10,
+					audit: 2,
+					links: {
+						self: "/api/v1/courses/MATH112/sections/5",
+						course: "/api/v1/courses/MATH112",
+					},
+				},
+			],
 		});
 	});
 
@@ -1907,5 +1905,3 @@ describe("REST API v1", function () {
 		}
 	});
 });
-
-
