@@ -181,3 +181,48 @@ export function SectionCreateError(body: any) {
 export function generateSectionID() {
     return Date.now();
 }
+
+
+// Checks the Request's body and returns the correct
+// error message for EBNF (SC 400) in post("api/v1/search")
+// Returns false if no error
+// TODO: 
+export function EBNFError(body: any) {
+	const errorMes = { error: "Invalid query" };
+	return;
+}
+
+// Checks if the result is too large, return error message or false if no error
+// SC 413 in post("/api/v1/search")
+// TODO:
+export function TooLargeError() {
+	return false;
+}
+
+// Check if body produces a 422 error
+// return error message or false
+export function SearchValidationError(body: any) {
+	let isError = false;
+	const errorMes = {
+		error: "Validation failed",
+		fields: {} as any
+	};
+	if (body.kind == undefined) {
+		errorMes.fields["kind"] = "required but missing";
+		isError = true;
+	} else if (!(body.king == "course_offerings")) {
+		errorMes.fields["kind"] = "expected to be course_offerings";
+		isError = true;
+	}
+
+	if (body.query == undefined) {
+		errorMes.fields["query"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.query == "object")) {
+		errorMes.fields["kind"] = "expected an object";
+		isError = true;
+	}
+
+	if (isError) return errorMes;
+	return isError;
+}
