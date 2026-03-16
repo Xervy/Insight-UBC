@@ -84,23 +84,23 @@ export type SearchRequestBody = {
 export type Comparator = LogicalComparator | MFieldComparator | SFieldComparator | NegationComparator;
 
 export type LogicalComparator = {
-	[key in "AND" | "OR"]: [Comparator, Comparator];
+	[key in "AND" | "OR"]?: [Comparator, Comparator];
 };
 
 export type MFieldComparator = {
-	[key in "LT" | "GT" | "EQ"]: {
-		[key in MField]: number;
+	[key in "LT" | "GT" | "EQ"]?: {
+		[key in MField]?: number;
 	};
 };
 
 export type SFieldComparator = {
-	[key in "IS"]: {
-		[key in SField]: string;
+	[key in "IS"]?: {
+		[key in SField]?: string;
 	};
 };
 
 export type NegationComparator = {
-	[key in "NOT"]: Comparator;
+	[key in "NOT"]?: Comparator;
 };
 
 export type MField = 'avg' | 'pass' | 'fail' | 'audit' | 'year';
