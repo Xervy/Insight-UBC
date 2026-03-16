@@ -68,3 +68,41 @@ export type UploadObject = {
 	Fail: number;
 	Audit: number;
 };
+
+export type SearchRequestBody = {
+	kind: string;
+	query: {
+		WHERE: Comparator;
+		OPTIONS: {
+			COLUMNS: string[];
+			ORDER: string;
+		};
+	};
+};
+
+
+export type Comparator = LogicalComparator | MFieldComparator | SFieldComparator | NegationComparator;
+
+export type LogicalComparator = {
+	[key in "AND" | "OR"]: [Comparator, Comparator];
+};
+
+export type MFieldComparator = {
+	[key in "LT" | "GT" | "EQ"]: {
+		[key in MField]: number;
+	};
+};
+
+export type SFieldComparator = {
+	[key in "IS"]: {
+		[key in SField]: string;
+	};
+};
+
+export type NegationComparator = {
+	[key in "NOT"]: Comparator;
+};
+
+export type MField = 'avg' | 'pass' | 'fail' | 'audit' | 'year';
+
+export type SField = 'title' | 'dept' | 'code' | 'instructor';
