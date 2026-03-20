@@ -5,11 +5,26 @@ import cors from "cors";
 import multer from "multer";
 import JSZip from "jszip";
 
-import { Course, Section, Offering, Upload, UploadStats } from "./Types";
 import {
+	Course,
+	Section,
+	Offering,
+	Upload,
+	UploadStats,
+	SearchRequestBody,
+	MFieldArr,
+	SFieldArr,
+	SearchEBNFError,
+} from "./Types";
+import {
+	OfferingFieldsForColumn,
 	CourseCreateError,
+	EBNFError,
 	generateSectionID,
+	Search,
+	SearchValidationError,
 	SectionCreateError,
+	TooLargeError,
 	UpdateCourseLink,
 	UpdateListOfCoursesLinks,
 	UpdateListOfSectionsLinks,
@@ -883,6 +898,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.status = "completed";
 	});
 
+	/*
 	async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
 		const datas = await readUploads();
 		const data = datas.find((j) => j.id === dataId);
@@ -1027,8 +1043,96 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		data.message = "Dataset processing complete";
 
 		await writeUpload(datas);
-	}
+	}*/
 
+	app.post("/api/v1/search", async (req, res) => {
+		const data = await readData();
+		const body = req.body as SearchRequestBody;
+
+		// // SC 400
+		// const isEBNF = EBNFError(body);
+		// if (!(typeof isEBNF === "boolean")) {
+		// 	res.status(400).json(isEBNF);
+		// 	return;
+		// }
+
+		// // SC 413
+		// const isTooLarge = TooLargeError();
+		// if (!(typeof isTooLarge === "boolean")) {
+		// 	res.status(413).json(isTooLarge);
+		// 	return;
+		// }
+
+		// SC 422
+		const validation = SearchValidationError(body);
+		if (!(typeof validation === "boolean")) {
+			res.status(422).json(validation);
+			return;
+		}
+
+		// SC 200
+		const where = body.query.WHERE;
+		if (!where) {
+			res.status(400).json(EBNFError("Missing WHERE"));
+			return;
+		}
+
+		const options = body.query.OPTIONS;
+		if (!options) {
+			res.status(400).json(EBNFError("Missing OPTIONS"));
+			return;
+		}
+
+		const columns = options.COLUMNS;
+		if (!columns) {
+			res.status(400).json(EBNFError("Missing COLUMNS"));
+			return;
+		}
+
+		if (Object.keys(columns).some((key) => !(key in MFieldArr || key in SFieldArr))) {
+			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
+			return;
+		}
+
+		const order = options.ORDER;
+		if (order) {
+			if (!columns.includes(order)) {
+				res.status(400).json(EBNFError("ORDER must be a key in COLUMNS"));
+				return;
+			}
+		}
+
+		const whereKeys = Object.keys(where);
+		if (whereKeys.length > 1) {
+			res.status(400).json(EBNFError("WHERE must be an object with at most one FILTER"));
+			return;
+		}
+
+		const optionKeys = Object.keys(options);
+		if (!optionKeys.includes("COLUMNS")) {
+			res.status(400).json(EBNFError("OPTIONS must be an object with COLUMNS and optional ORDER"));
+				return;
+		}
+		// Initial EBNF Error Check Complete
+
+		const columnedData = OfferingFieldsForColumn(data, columns);
+
+		if (whereKeys.length == 0) {
+			res.status(200).json(columnedData);
+		}
+		try {
+			const filteredCourses = Search(where, columnedData);
+			if (filteredCourses.length > 5000) {
+				res.status(413).json({
+					error: "Too many results",
+					message: "Query would return more than 5000 results",
+					limit: 5000,
+				});
+			}
+		} catch (e: any) {
+			res.status(400).json(EBNFError((e as SearchEBNFError).message));
+		}
+	});
 
 	return app;
 }

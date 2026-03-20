@@ -73,18 +73,29 @@ export type SearchRequestBody = {
 	kind: string;
 	query: {
 		WHERE: Comparator;
-		OPTIONS: {
-			COLUMNS: string[];
-			ORDER: string;
-		};
+		OPTIONS: SearchRequestBodyOptions;
 	};
 };
 
+export type SearchRequestBodyOptions = {
+	COLUMNS: (MField & SField)[];
+	ORDER?: string;
+};
+
+// export type SearchColumnDataS = {
+// 	[key in SField]?: string;
+// }
+
+// export type SearchColumnDataM = {
+// 	[key in MField]?: number;
+// }
+
+// export type SearchColumnData = SearchColumnDataM & SearchColumnDataS;
 
 export type Comparator = LogicalComparator | MFieldComparator | SFieldComparator | NegationComparator;
 
 export type LogicalComparator = {
-	[key in "AND" | "OR"]?: [Comparator, Comparator];
+	[key in "AND" | "OR"]?: Comparator[];
 };
 
 export type MFieldComparator = {
@@ -103,6 +114,15 @@ export type NegationComparator = {
 	[key in "NOT"]?: Comparator;
 };
 
-export type MField = 'avg' | 'pass' | 'fail' | 'audit' | 'year';
+export const MFieldArr = ["avg", "pass", "fail", "audit", "year"];
+export const SFieldArr = ["title", "dept", "code", "instructor"];
 
-export type SField = 'title' | 'dept' | 'code' | 'instructor';
+export type MField = (typeof MFieldArr)[number];
+
+export type SField = (typeof SFieldArr)[number];
+
+export class SearchEBNFError extends Error {
+	constructor(msg: string) {
+		super(msg);
+	}
+}
