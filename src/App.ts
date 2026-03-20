@@ -1084,13 +1084,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 
 		const columns = options.COLUMNS;
-		if (!columns) {
+		if (columns && columns.length == 0) {
 			res.status(400).json(EBNFError("Missing COLUMNS"));
-			return;
-		}
-
-		if (Object.keys(columns).some((key) => !(key in MFieldArr || key in SFieldArr))) {
-			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
 			return;
 		}
 
@@ -1111,15 +1106,18 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const optionKeys = Object.keys(options);
 		if (!optionKeys.includes("COLUMNS")) {
 			res.status(400).json(EBNFError("OPTIONS must be an object with COLUMNS and optional ORDER"));
-				return;
+			return;
+		}
+
+		if (columns.some((key) => !(MFieldArr.includes(key) || SFieldArr.includes(key)))) {
+			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
+			return;
 		}
 		// Initial EBNF Error Check Complete
 
 		const columnedData = OfferingFieldsForColumn(data, columns);
 
-		if (whereKeys.length == 0) {
-			res.status(200).json(columnedData);
-		}
+
 		try {
 			const filteredCourses = Search(where, columnedData);
 			if (filteredCourses.length > 5000) {
@@ -1128,10 +1126,29 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					message: "Query would return more than 5000 results",
 					limit: 5000,
 				});
+				return;
 			}
+
+			if (order) {
+				columnedData.sort((a: any, b: any) => {
+					if (typeof a[order] == 'string') {
+						return a[order].localeCompare(b[order]);
+					} else if (typeof a[order] == 'number') {
+						return a[order] - b[order];
+					} else {
+						return -1;
+					}
+				});
+			}
+
+			res.status(200).json(filteredCourses);
 		} catch (e: any) {
 			res.status(400).json(EBNFError((e as SearchEBNFError).message));
 		}
+
+
+
+
 	});
 
 	return app;

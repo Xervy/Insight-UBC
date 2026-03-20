@@ -221,10 +221,19 @@ export function SearchValidationError(body: any) {
 		error: "Validation failed",
 		fields: {} as any,
 	};
+
+	if (!body) {
+		errorMes.fields = {
+			kind: "required but missing",
+			query: "required but missing"
+		}
+		return errorMes;
+	}
+
 	if (body.kind == undefined) {
 		errorMes.fields["kind"] = "required but missing";
 		isError = true;
-	} else if (!(body.king == "course_offerings")) {
+	} else if (!(body.kind == "course_offerings")) {
 		errorMes.fields["kind"] = "expected to be course_offerings";
 		isError = true;
 	}
@@ -233,7 +242,7 @@ export function SearchValidationError(body: any) {
 		errorMes.fields["query"] = "required but missing";
 		isError = true;
 	} else if (!(typeof body.query == "object")) {
-		errorMes.fields["kind"] = "expected an object";
+		errorMes.fields["query"] = "expected an object";
 		isError = true;
 	}
 
@@ -300,6 +309,10 @@ function SearchMath(
 	}
 	const fieldOfInterest = allFields[0];
 	const valToCompare = cmp[fieldOfInterest]!; // Object.values(lt)[0];
+
+	if (typeof valToCompare != 'number') {
+		throw new SearchEBNFError(`${mathType} must be an object with one mfield of type number`);
+	}
 	for (const obj of dataAsColumns) {
 		if (operator(obj[fieldOfInterest], valToCompare)) {
 			fitsCriteria.push(obj);
@@ -319,26 +332,31 @@ function SearchIS(comparator: SFieldComparator, dataAsColumns: any[]): any[] {
 	const fieldOfInterest = allFields[0];
 	const stringToMatch = is[fieldOfInterest]!;
 
-	if (stringToMatch.includes("*")) {
+	if (typeof stringToMatch != "string") {
+		throw new SearchEBNFError("IS must be an object with one sfield of type string");
+	}
+
+	if (stringToMatch.includes("\*")) {
 		const strLen = stringToMatch.length;
-		if (stringToMatch.startsWith("*") && stringToMatch.endsWith("*")) {
+		if (stringToMatch.startsWith("\*") && stringToMatch.endsWith("\*")) {
 			const minusWildcards = stringToMatch.substring(1, strLen - 2);
 			for (const obj of dataAsColumns) {
 				if (obj[fieldOfInterest].includes(minusWildcards)) {
 					fitsCriteria.push(obj);
 				}
 			}
-		} else if (stringToMatch.startsWith("*")) {
+		} else if (stringToMatch.startsWith("\*")) {
 			const minusWildcards = stringToMatch.substring(1);
+			
 			for (const obj of dataAsColumns) {
 				if (obj[fieldOfInterest].endsWith(minusWildcards)) {
 					fitsCriteria.push(obj);
 				}
 			}
-		} else if (stringToMatch.endsWith("*")) {
+		} else if (stringToMatch.endsWith("\*")) {
 			const minusWildcards = stringToMatch.substring(0, strLen - 2);
 			for (const obj of dataAsColumns) {
-				if (obj[allFields[0]].startsWith(minusWildcards)) {
+				if (obj[fieldOfInterest].startsWith(minusWildcards)) {
 					fitsCriteria.push(obj);
 				}
 			}
@@ -351,6 +369,7 @@ function SearchIS(comparator: SFieldComparator, dataAsColumns: any[]): any[] {
 			fitsCriteria.push(obj);
 		}
 	}
+
 	return fitsCriteria;
 }
 
@@ -375,10 +394,11 @@ function isFilterObject(str: string) {
 // that match what the comparator asked for
 // TODO
 export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
+	if (Object.keys(comparator).length == 0) {
+		return dataAsColumns;
+	}
+
 	const cmp = Object.keys(comparator);
-	// if (cmp.length == 0) {
-	// 	return [] as any[];
-	// }
 	switch (cmp[0]) {
 		case "AND":
 			return SearchAND(comparator as LogicalComparator, dataAsColumns);
@@ -396,7 +416,7 @@ export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
 			return SearchNOT(comparator as NegationComparator, dataAsColumns);
 		default:
 			// TODO
-			return [];
+			throw new Error("oh no, not supposed to get here");
 	}
 }
 
@@ -406,12 +426,12 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SField & MFiel
 	for (const course of data) {
 		for (const section of course.sections) {
 			let toPush = {} as any;
-			for (const col in columns) {
+			for (const col of columns) {
 				switch (col) {
 					case "title":
 					case "dept":
 					case "code":
-						toPush.col = course[col];
+						toPush[col] = course[col];
 						break;
 					case "instructor":
 					case "year":
@@ -419,7 +439,7 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SField & MFiel
 					case "pass":
 					case "fail":
 					case "audit":
-						toPush.col = section[col];
+						toPush[col] = section[col];
 						break;
 				}
 			}
