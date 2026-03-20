@@ -447,4 +447,5 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SField & MFiel
 		}
 	}
 	return cleanedData;
+
 }
