@@ -12,8 +12,8 @@ import {
 	Upload,
 	UploadStats,
 	SearchRequestBody,
-	MFieldArr,
-	SFieldArr,
+	MFieldArrOffering,
+	SFieldArrOffering,
 	SearchEBNFError,
 	Data,
 } from "./Types";
@@ -22,7 +22,7 @@ import {
 	CourseCreateError,
 	EBNFError,
 	generateSectionID,
-	Search,
+	SearchOfferings,
 	SearchValidationError,
 	SectionCreateError,
 	UpdateCourseLink,
@@ -979,7 +979,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		if (columns.some((key) => !(MFieldArr.includes(key) || SFieldArr.includes(key)))) {
+		if (columns.some((key) => !(MFieldArrOffering.includes(key) || SFieldArrOffering.includes(key)))) {
 			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
 			return;
 		}
@@ -1003,15 +1003,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.status(400).json(EBNFError("OPTIONS must be an object with COLUMNS and optional ORDER"));
 			return;
 		}
-
-		
 		// Initial EBNF Error Check Complete
 
 		const columnedData = OfferingFieldsForColumn(data, columns);
 
-
 		try {
-			const filteredCourses = Search(where, columnedData);
+			const filteredCourses = SearchOfferings(where, columnedData);
 			if (filteredCourses.length > 5000) {
 				res.status(413).json({
 					error: "Too many results",
@@ -1300,6 +1297,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
 		res.status(200).json(roomExists);
 	});
+
+
 
 
 	return app;

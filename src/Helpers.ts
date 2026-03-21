@@ -4,15 +4,17 @@ import {
 	Comparator,
 	Course,
 	LogicalComparator,
-	MField,
-	MFieldComparator,
+	MFieldOffering,
+	MFieldComparatorOffering,
 	NegationComparator,
 	Room,
 	SearchEBNFError,
 	SearchRequestBody,
 	Section,
-	SField,
-	SFieldComparator,
+	SFieldOffering,
+	SFieldComparatorOffering,
+	MFieldComparatorFacility,
+	SFieldComparatorFacility,
 } from "./Types";
 import { off } from "process";
 
@@ -250,7 +252,7 @@ export function SearchValidationError(body: any) {
 	return isError;
 }
 
-function SearchAND(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
+function SearchOfferingsAND(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
 	const fitsCriteria = [];
 	const subComparators = comparator.AND!;
 	if (subComparators.length <= 1) {
@@ -259,7 +261,7 @@ function SearchAND(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
 	if (subComparators.some((cmp) => !isFilterObject(Object.keys(cmp)[0]))) {
 		throw new SearchEBNFError("AND must be a non-empty array of FILTER objects");
 	}
-	const searchResults = subComparators.map((cmp) => Search(cmp, dataAsColumns));
+	const searchResults = subComparators.map((cmp) => SearchOfferings(cmp, dataAsColumns));
 	const indexer = searchResults.pop();
 	// Look through the Offerings of One array from the 2D Array of searchResults
 	// Filter through that array and the lamda function for filter is:
@@ -273,7 +275,30 @@ function SearchAND(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
 	return allMatches;
 }
 
-function SearchOR(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
+function SearchFacilitiesAND(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
+	const fitsCriteria = [];
+	const subComparators = comparator.AND!;
+	if (subComparators.length <= 1) {
+		throw new SearchEBNFError("AND must be a non-empty array of FILTER objects");
+	}
+	if (subComparators.some((cmp) => !isFilterObject(Object.keys(cmp)[0]))) {
+		throw new SearchEBNFError("AND must be a non-empty array of FILTER objects");
+	}
+	const searchResults = subComparators.map((cmp) => SearchFacilities(cmp, dataAsColumns));
+	const indexer = searchResults.pop();
+	// Look through the Offerings of One array from the 2D Array of searchResults
+	// Filter through that array and the lamda function for filter is:
+	// If you find any array from the rest of search Results that doesn't include the offering,
+	// Return False
+	const allMatches =
+		indexer?.filter((offer) => {
+			return !searchResults.some((otherSearch) => !otherSearch.includes(offer));
+		}) || [];
+
+	return allMatches;
+}
+
+function SearchOfferingsOR(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
 	let fitsCriteria = [];
 	const subComparators = comparator.OR!;
 	if (subComparators.length <= 1) {
@@ -282,7 +307,28 @@ function SearchOR(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
 	if (subComparators.some((cmp) => !isFilterObject(Object.keys(cmp)[0]))) {
 		throw new SearchEBNFError("OR must be a non-empty array of FILTER objects");
 	}
-	const searchResults = subComparators.map((cmp) => Search(cmp, dataAsColumns));
+	const searchResults = subComparators.map((cmp) => SearchOfferings(cmp, dataAsColumns));
+	fitsCriteria = searchResults?.pop() || [];
+	for (const offerList of searchResults) {
+		for (const offer of offerList) {
+			if (!fitsCriteria.includes(offer)) {
+				fitsCriteria.push(offer);
+			}
+		}
+	}
+	return fitsCriteria;
+}
+
+function SearchFacilitiesOR(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
+	let fitsCriteria = [];
+	const subComparators = comparator.OR!;
+	if (subComparators.length <= 1) {
+		throw new SearchEBNFError("OR must be a non-empty array of FILTER objects");
+	}
+	if (subComparators.some((cmp) => !isFilterObject(Object.keys(cmp)[0]))) {
+		throw new SearchEBNFError("OR must be a non-empty array of FILTER objects");
+	}
+	const searchResults = subComparators.map((cmp) => SearchFacilities(cmp, dataAsColumns));
 	fitsCriteria = searchResults?.pop() || [];
 	for (const offerList of searchResults) {
 		for (const offer of offerList) {
@@ -295,7 +341,7 @@ function SearchOR(comparator: LogicalComparator, dataAsColumns: any[]): any[] {
 }
 
 function SearchMath(
-	comparator: MFieldComparator,
+	comparator: MFieldComparatorOffering | MFieldComparatorFacility,
 	dataAsColumns: any[],
 	operator: (fromData: number, fromRequest: number) => boolean,
 	mathType: "LT" | "GT" | "EQ"
@@ -321,9 +367,9 @@ function SearchMath(
 	return fitsCriteria;
 }
 
-function SearchIS(comparator: SFieldComparator, dataAsColumns: any[]): any[] {
+function SearchIS(comparator: SFieldComparatorOffering | SFieldComparatorFacility, dataAsColumns: any[]): any[] {
 	const fitsCriteria = [];
-	const is = (comparator as SFieldComparator).IS!;
+	const is = (comparator as SFieldComparatorOffering).IS!;
 	const allFields = Object.keys(is);
 	if (allFields.length == 0 || allFields.length > 1) {
 		throw new SearchEBNFError("IS must be an object with one sfield of type string");
@@ -373,13 +419,25 @@ function SearchIS(comparator: SFieldComparator, dataAsColumns: any[]): any[] {
 	return fitsCriteria;
 }
 
-function SearchNOT(comparator: NegationComparator, dataAsColumns: any[]): any[] {
+function SearchOfferingsNOT(comparator: NegationComparator, dataAsColumns: any[]): any[] {
 	const not = (comparator as NegationComparator).NOT!;
 	const allFields = Object.keys(not);
 	if (allFields.length == 0 || !isFilterObject(allFields[0]) || allFields.length > 1) {
 		throw new SearchEBNFError("NOT must be a FILTER object");
 	}
-	const dontAdd = Search(not, dataAsColumns) as any[];
+	const dontAdd = SearchOfferings(not, dataAsColumns) as any[];
+	const filtered = dataAsColumns.filter((offer) => !dontAdd.includes(offer));
+
+	return filtered;
+}
+
+function SearchFacilitiesNOT(comparator: NegationComparator, dataAsColumns: any[]): any[] {
+	const not = (comparator as NegationComparator).NOT!;
+	const allFields = Object.keys(not);
+	if (allFields.length == 0 || !isFilterObject(allFields[0]) || allFields.length > 1) {
+		throw new SearchEBNFError("NOT must be a FILTER object");
+	}
+	const dontAdd = SearchFacilities(not, dataAsColumns) as any[];
 	const filtered = dataAsColumns.filter((offer) => !dontAdd.includes(offer));
 
 	return filtered;
@@ -392,7 +450,7 @@ function isFilterObject(str: string) {
 
 // Given a comparator, return the filtered list of courses
 // that match what the comparator asked for
-export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
+export function SearchOfferings(comparator: Comparator, dataAsColumns: any[]): any[] {
 	if (Object.keys(comparator).length == 0) {
 		return dataAsColumns;
 	}
@@ -400,19 +458,46 @@ export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
 	const cmp = Object.keys(comparator);
 	switch (cmp[0]) {
 		case "AND":
-			return SearchAND(comparator as LogicalComparator, dataAsColumns);
+			return SearchOfferingsAND(comparator as LogicalComparator, dataAsColumns);
 		case "OR":
-			return SearchOR(comparator as LogicalComparator, dataAsColumns);
+			return SearchOfferingsOR(comparator as LogicalComparator, dataAsColumns);
 		case "LT":
-			return SearchMath(comparator as MFieldComparator, dataAsColumns, (a, b) => a < b, "LT");
+			return SearchMath(comparator as MFieldComparatorOffering, dataAsColumns, (a, b) => a < b, "LT");
 		case "GT":
-			return SearchMath(comparator as MFieldComparator, dataAsColumns, (a, b) => a > b, "GT");
+			return SearchMath(comparator as MFieldComparatorOffering, dataAsColumns, (a, b) => a > b, "GT");
 		case "EQ":
-			return SearchMath(comparator as MFieldComparator, dataAsColumns, (a, b) => a == b, "EQ");
+			return SearchMath(comparator as MFieldComparatorOffering, dataAsColumns, (a, b) => a == b, "EQ");
 		case "IS":
-			return SearchIS(comparator as SFieldComparator, dataAsColumns);
+			return SearchIS(comparator as SFieldComparatorOffering, dataAsColumns);
 		case "NOT":
-			return SearchNOT(comparator as NegationComparator, dataAsColumns);
+			return SearchOfferingsNOT(comparator as NegationComparator, dataAsColumns);
+		default:
+			// TODO
+			throw new Error("oh no, not supposed to get here");
+	}
+}
+
+export function SearchFacilities(comparator: Comparator, dataAsColumns: any[]): any[] {
+	if (Object.keys(comparator).length == 0) {
+		return dataAsColumns;
+	}
+
+	const cmp = Object.keys(comparator);
+	switch (cmp[0]) {
+		case "AND":
+			return SearchFacilitiesAND(comparator as LogicalComparator, dataAsColumns);
+		case "OR":
+			return SearchFacilitiesOR(comparator as LogicalComparator, dataAsColumns);
+		case "LT":
+			return SearchMath(comparator as MFieldComparatorFacility, dataAsColumns, (a, b) => a < b, "LT");
+		case "GT":
+			return SearchMath(comparator as MFieldComparatorFacility, dataAsColumns, (a, b) => a > b, "GT");
+		case "EQ":
+			return SearchMath(comparator as MFieldComparatorFacility, dataAsColumns, (a, b) => a == b, "EQ");
+		case "IS":
+			return SearchIS(comparator as SFieldComparatorFacility, dataAsColumns);
+		case "NOT":
+			return SearchFacilitiesNOT(comparator as NegationComparator, dataAsColumns);
 		default:
 			// TODO
 			throw new Error("oh no, not supposed to get here");
@@ -421,7 +506,7 @@ export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
 
 // Turns the list of Courses into just a list of objects with the fields in columns
 // and returns it (Doesnt change original list)
-export function OfferingFieldsForColumn(data: Course[], columns: (SField & MField)[]) {
+export function OfferingFieldsForColumn(data: Course[], columns: (SFieldOffering & MFieldOffering)[]) {
 	const cleanedData = [];
 	for (const course of data) {
 		for (const section of course.sections) {
@@ -440,6 +525,37 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SField & MFiel
 					case "fail":
 					case "audit":
 						toPush[col] = section[col];
+						break;
+				}
+			}
+			cleanedData.push(toPush);
+		}
+	}
+	return cleanedData;
+}
+
+// Turns list of Buildings into just a list of objects with the fields specified in columns
+// and returns it (Doesnt change original list)
+export function FacilityFieldsForColumn(data: Building[], columns: (SFieldOffering & MFieldOffering)[]) {
+	const cleanedData = [];
+	for (const bld of data) {
+		for (const room of bld.rooms) {
+			let toPush = {} as any;
+			for (const col of columns) {
+				switch (col) {
+					case "name":
+					case "address":
+					case "lat":
+					case "lon":
+						toPush[col] = bld[col];
+						break;
+					case "building":
+					case "number":
+					case "type":
+					case "furniture":
+					case "href":
+					case "seats":
+						toPush[col] = room[col];
 						break;
 				}
 			}

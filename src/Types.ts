@@ -102,7 +102,7 @@ export type SearchRequestBody = {
 };
 
 export type SearchRequestBodyOptions = {
-	COLUMNS: (MField & SField)[];
+	COLUMNS: (MFieldOffering & SFieldOffering)[];
 	ORDER?: string;
 };
 
@@ -116,21 +116,33 @@ export type SearchRequestBodyOptions = {
 
 // export type SearchColumnData = SearchColumnDataM & SearchColumnDataS;
 
-export type Comparator = LogicalComparator | MFieldComparator | SFieldComparator | NegationComparator;
+export type Comparator = LogicalComparator | MFieldComparatorOffering | SFieldComparatorOffering | MFieldComparatorFacility | SFieldComparatorFacility | NegationComparator;
 
 export type LogicalComparator = {
 	[key in "AND" | "OR"]?: Comparator[];
 };
 
-export type MFieldComparator = {
+export type MFieldComparatorOffering = {
 	[key in "LT" | "GT" | "EQ"]?: {
-		[key in MField]?: number;
+		[key in MFieldOffering]?: number;
 	};
 };
 
-export type SFieldComparator = {
+export type SFieldComparatorOffering = {
 	[key in "IS"]?: {
-		[key in SField]?: string;
+		[key in SFieldOffering]?: string;
+	};
+};
+
+export type MFieldComparatorFacility = {
+	[key in "LT" | "GT" | "EQ"]?: {
+		[key in MFieldFacility]?: number;
+	};
+};
+
+export type SFieldComparatorFacility = {
+	[key in "IS"]?: {
+		[key in SFieldFacility]?: string;
 	};
 };
 
@@ -138,12 +150,17 @@ export type NegationComparator = {
 	[key in "NOT"]?: Comparator;
 };
 
-export const MFieldArr = ["avg", "pass", "fail", "audit", "year"];
-export const SFieldArr = ["title", "dept", "code", "instructor"];
+export const MFieldArrOffering = ["avg", "pass", "fail", "audit", "year"];
+export const SFieldArrOffering = ["title", "dept", "code", "instructor"];
 
-export type MField = (typeof MFieldArr)[number];
+export const MFieldArrFacility = ["lat", "lon", "seats"];
+export const SFieldArrFacility = ["address", "building", "furniture", "href", "name", "number", "type"];
 
-export type SField = (typeof SFieldArr)[number];
+export type MFieldOffering = (typeof MFieldArrOffering)[number];
+export type SFieldOffering = (typeof SFieldArrOffering)[number];
+
+export type MFieldFacility = (typeof MFieldArrFacility)[number];
+export type SFieldFacility = (typeof SFieldArrFacility)[number];
 
 export class SearchEBNFError extends Error {
 	constructor(msg: string) {
