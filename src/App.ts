@@ -280,11 +280,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		// const { title, dept, code } = req.body ?? {};
-		// if (typeof title !== "string" || typeof dept !== "string" || typeof code !== "string") {
-		// 	res.status(422).json({ error: "title, dept, and code are required and must be strings" });
-		// 	return;
-		// }
 		const data: Course[] = await readData();
 		// const newCourse: Course = { id, title, dept, code, sections };
 
@@ -387,16 +382,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		// const limitParsed = parseIntParam(req.query.limit);
-		// const offsetParsed = parseIntParam(req.query.offset);
-
-		// const limit = limitParsed ?? 100;
-		// const offset = offsetParsed ?? 0;
-		// if (limit < 1 || limit > 5000 || offset < 0) {
-		// 	res.status(400).json({ error: "Invalid request parameters" });
-		// 	return;
-		// }
-
 		const sections: Section[] = Array.isArray(course.sections) ? course.sections : [];
 		const sortedSection = [...sections].sort((a, b) =>
 			String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
@@ -478,23 +463,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		// const { instructor, year, avg, pass, fail, audit } = req.body ?? {};
-		// const yearCheck = isInt(year) && /^(19|20)\d{2}$/.test(String(year));
-		// const avgCheck = isNum(avg) && avg >= 0 && avg <= 100;
-		// const check = (x: unknown) => isInt(x) && x >= 0;
-		// if (
-		// 	typeof instructor != "string" ||
-		// 	instructor.length === 0 ||
-		// 	!yearCheck ||
-		// 	!avgCheck ||
-		// 	!check(pass) ||
-		// 	!check(fail) ||
-		// 	!check(audit)
-		// ) {
-		// 	res.status(422).json({ error: "Validation failed" });
-		// 	return;
-		// }
-
 		const alreadyExists = course.sections.find((section) => section.id == sectionId);
 		if (alreadyExists) {
 			// SC 204
@@ -523,39 +491,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		await writeData(data);
 		const response = UpdateSectionLink(toPut, course);
 		res.status(201).json(response);
-
-		// const newSection: Section = {
-		// 	id: sectionId,
-		// 	instructor: req.body.instructor,
-		// 	year: req.body.year,
-		// 	avg: req.body.avg,
-		// 	pass: req.body.pass,
-		// 	fail: req.body.fail,
-		// 	audit: req.body.audit,
-		// };
-
-		// const index = course.sections.findIndex((s) => String(s.id) === sectionId);
-		// if (index === -1) {
-		// 	course.sections.push(newSection);
-		// 	await writeData(data);
-		// 	res.status(201).json({
-		// 		id: sectionId,
-		// 		instructor: req.body.instructor,
-		// 		year: req.body.year,
-		// 		avg: req.body.avg,
-		// 		pass: req.body.pass,
-		// 		fail: req.body.fail,
-		// 		audit: req.body.audit,
-		// 		links: {
-		// 			self: `/api/v1/courses/${courseId}/sections/${sectionId}`,
-		// 			course: `/api/v1/courses/${courseId}`,
-		// 		},
-		// 	});
-		// 	return;
-		// }
-		// course.sections[index] = newSection;
-		// await writeData(data);
-		// res.status(204).send();
 	});
 
 	//Remove a section from a course
@@ -588,19 +523,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.status(200).json(sectionDelete);
 	});
 
-	//Retrieve upload statistics
-	// app.get("/api/v1/datasets/:id", async (req, res): Promise<void> => {
-	// 	const id = req.params.id;
-	// 	const datas = await readUploads();
-	// 	const data = datas.find((j) => j.id === id);
-
-	// 	if (!data) {
-	// 		res.status(404).json({ error: "Not found", message: "no dataset with id 'upload_12345'" });
-	// 		return;
-	// 	}
-
-	// 	res.status(200).json(data);
-	// });
 	app.get("/api/v1/datasets/:dataset", async (req, res) => {
 		const datasetID = req.params.dataset;
 		let found = false;
@@ -676,28 +598,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	});
 
-	// app.post("/api/v1/datasets", upload.single("archive"), async (req, res): Promise<void> => {
-	// 	const kind = req.body.kind;
-	// 	if (kind !== "course_offerings" || !req.file) {
-	// 		res.status(422).json({ error: "Validation failed" });
-	// 		return;
-	// 	}
-	// 	const dataId = `upload_${Date.now()}_${Math.random().toString(16).slice(2)}`; //ChatGPT
-	// 	const data: Upload = {
-	// 		id: dataId,
-	// 		status: "processing",
-	// 		kind: "course_offerings",
-	// 		message: "Dataset accepted for processing",
-	// 	};
-
-	// 	const datas = await readUploads();
-	// 	datas.push(data);
-	// 	await writeUpload(datas);
-
-	// 	res.status(202).json(data);
-
-	// 	setImmediate(() => processDataset(dataId, req.file!.buffer).catch(() => void 0)); //ChatGPT
-	// });
 	app.post("/api/v1/datasets", upload.single("archive"), async (req, res) => {
 		// SC 422
 		let isError = false;
@@ -1246,10 +1146,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		} catch (e: any) {
 			res.status(400).json(EBNFError((e as SearchEBNFError).message));
 		}
+	});
 
-
-
-
+	app.get("/api/v2/buildings", async (req, res) => {
+		const data = await readData();
 	});
 
 

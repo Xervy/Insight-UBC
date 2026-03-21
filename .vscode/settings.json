@@ -23,5 +23,8 @@
 	"mochaExplorer.require": "ts-node/register",
 	"[typescript]": {
 		"editor.defaultFormatter": "vscode.typescript-language-features"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "vscode.json-language-features"
 	}
 }
