@@ -1,3 +1,8 @@
+export type Data = {
+	course_offerings: Course[];
+	facilities: Building[];
+}
+
 export type Course = {
 	id: string;
 	title: string;

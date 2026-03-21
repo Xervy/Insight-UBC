@@ -15,6 +15,7 @@ import {
 	MFieldArr,
 	SFieldArr,
 	SearchEBNFError,
+	Data,
 } from "./Types";
 import {
 	OfferingFieldsForColumn,
@@ -28,6 +29,8 @@ import {
 	UpdateListOfCoursesLinks,
 	UpdateListOfSectionsLinks,
 	UpdateSectionLink,
+	UpdateListOfBuildingsLinks,
+	RetrieveAllQueryError,
 } from "./Helpers";
 
 /**
@@ -90,7 +93,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	async function readData(): Promise<Course[]> {
 		try {
 			const data = await fs.readFile(DATA_FILE, "utf-8");
-			return JSON.parse(data) as Course[];
+			const unfixedForDeprecated = JSON.parse(data) as Data;
+			return unfixedForDeprecated.course_offerings;
 		} catch {
 			return [];
 		}
@@ -203,28 +207,11 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		let limit = parseInt(req.query.limit as string);
 		let offset = parseInt(req.query.offset as string);
-		if (isNaN(limit)) {
-			limit = 100;
-		}
-		if (limit < 1 || limit > 5000) {
-			errorMessage.params["limit"] = "expected an integer between 1 and 5000";
-			isError = true;
-			// res.status(400).json({ error: "limit must be between 1 and 5000" });
-			// return;
-		}
-		if (isNaN(offset)) {
-			offset = 0;
-		}
-
-		if (offset < 0) {
-			errorMessage.params["offset"] = "expected an integer >= 0";
-			isError = true;
-			// res.status(400).json({ error: "offset must be >= 0" });
-			// return;
-		}
-
-		if (isError) {
-			res.status(400).json(errorMessage);
+		
+		// SC 400
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes == "boolean")) {
+			res.send(400).json(errorRes);
 			return;
 		}
 
@@ -356,28 +343,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		let limit = parseInt(req.query.limit as string);
 		let offset = parseInt(req.query.offset as string);
 
-		if (isNaN(limit)) {
-			limit = 100;
-		}
-		if (limit < 1 || limit > 5000) {
-			errorMessage.params["limit"] = "expected an integer between 1 and 5000";
-			isError = true;
-			// res.status(400).json({ error: "limit must be between 1 and 5000" });
-			// return;
-		}
-		if (isNaN(offset)) {
-			offset = 0;
-		}
-
-		if (offset < 0) {
-			errorMessage.params["offset"] = "expected an integer >= 0";
-			isError = true;
-			// res.status(400).json({ error: "offset must be >= 0" });
-			// return;
-		}
-
-		if (isError) {
-			res.status(400).json(errorMessage);
+		// SC 400
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes == "boolean")) {
+			res.send(400).json(errorRes);
 			return;
 		}
 
@@ -1148,9 +1117,73 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings", async (req, res) => {
-		const data = await readData();
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+
+		let limit = parseInt(req.query.limit as string);
+		let offset = parseInt(req.query.offset as string);
+
+		// SC 400 
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes == "boolean")) {
+			res.send(400).json(errorRes);
+			return;
+		}
+
+
+		const buildings = data.facilities;
+		const buildingsWithLinks = UpdateListOfBuildingsLinks(buildings);
 	});
 
 
 	return app;
 }
+
+
+app.get("/api/v1/courses", async (req, res): Promise<void> => {
+	const data = await readData();
+
+	const errorMessage = {
+		error: "Invalid request parameters",
+		params: {} as any,
+	};
+	let isError = false;
+
+	let limit = parseInt(req.query.limit as string);
+	let offset = parseInt(req.query.offset as string);
+	if (isNaN(limit)) {
+		limit = 100;
+	}
+	if (limit < 1 || limit > 5000) {
+		errorMessage.params["limit"] = "expected an integer between 1 and 5000";
+		isError = true;
+		// res.status(400).json({ error: "limit must be between 1 and 5000" });
+		// return;
+	}
+	if (isNaN(offset)) {
+		offset = 0;
+	}
+
+	if (offset < 0) {
+		errorMessage.params["offset"] = "expected an integer >= 0";
+		isError = true;
+		// res.status(400).json({ error: "offset must be >= 0" });
+		// return;
+	}
+
+	if (isError) {
+		res.status(400).json(errorMessage);
+		return;
+	}
+
+	const sort = [...data].sort((a, b) => a.id.localeCompare(b.id));
+	let items = sort.slice(offset, offset + limit);
+	let updatedLinks = UpdateListOfCoursesLinks(items);
+
+	res.status(200).json({
+		total: data.length,
+		limit,
+		offset,
+		items: updatedLinks,
+	});
+});

@@ -451,10 +451,16 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SField & MFiel
 // Takes a list of buildings and returns the list of buildings without
 // the parameter "rooms", instead it has a "links" parameter to itself and rooms 
 export function UpdateListOfBuildingsLinks(buildings: Building[]) {
-	return buildings.map((building) => {
-		UpdateBuildingLink(building);
-	});
+	// return buildings.map((building) => {
+	// 	UpdateBuildingLink(building);
+	// });									My Attempt to Make Ben Happy
 
+	const buildingsWithLinks = [];
+	for (let i = 0; i < buildings.length; i++) {
+		const updatedBuilding = UpdateBuildingLink(buildings[i]);
+		buildingsWithLinks.push(updatedBuilding);
+	}
+	return buildingsWithLinks;
 }
 
 // Takes a building and returns it with links to self and rooms
@@ -473,5 +479,34 @@ export function UpdateBuildingLink(building: Building) {
 			rooms: rooms
 		}
 	};
+}
 
+// returns the error message for when query is incorrect for retrieving
+// courses, sections, buildings, rooms. Returns false if no error
+export function RetrieveAllQueryError(limit: any, offset: any) {
+	const errorMessage = {
+			error: "Invalid request parameters",
+			params: {} as any,
+		};
+		let isError = false;
+
+		if (isNaN(limit)) {
+			limit = 100;
+		}
+		if (limit < 1 || limit > 5000) {
+			errorMessage.params["limit"] = "expected an integer between 1 and 5000";
+			isError = true;
+		}
+		if (isNaN(offset)) {
+			offset = 0;
+		}
+		if (offset < 0) {
+			errorMessage.params["offset"] = "expected an integer >= 0";
+			isError = true;
+		}
+
+		if (isError) {
+			return errorMessage;
+		}
+		return isError;
 }
