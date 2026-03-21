@@ -25,7 +25,7 @@ const datadir = "./data" as const;
 describe("REST API v1", function () {
 	let app: Application;
 	let idSet: Set<String>;
-	let datadir = "./.App.spects";
+	let datadir = "./data";
 
 	before(async () => {
 		await fs.mkdir(datadir, { recursive: true });
@@ -1685,11 +1685,7 @@ describe("REST API v1", function () {
 			audit: 0,
 		}));
 
-		await fs.writeFile(
-			datadir,
-			JSON.stringify(lotsOfCourses, null, 2), // pretty format
-			"utf-8"
-		);
+
 
 		const res = await request(app)
 			.post("/api/v1/search")
@@ -1787,8 +1783,8 @@ describe("REST API v1", function () {
 			.post("/api/v1/search")
 			.send({
 				kind: "course_offerings",
-				WHERE: {},
 				query: {
+					WHERE: {},
 					OPTIONS: {
 						COLUMNS: ["invalid"],
 						ORDER: "avg",
@@ -1809,8 +1805,8 @@ describe("REST API v1", function () {
 			.post("/api/v1/search")
 			.send({
 				kind: "course_offerings",
-				WHERE: {},
 				query: {
+					WHERE: {},
 					OPTIONS: {
 						COLUMNS: ["dept"],
 						ORDER: "invalid",
@@ -1831,10 +1827,10 @@ describe("REST API v1", function () {
 			.post("/api/v1/search")
 			.send({
 				kind: "course_offerings",
-				WHERE: {
-					GT: { avg: 80 },
-				},
 				query: {
+					WHERE: {
+						GT: { avg: 80 },
+					},
 					OPTIONS: {
 						COLUMNS: ["dept", "avg"],
 						ORDER: "avg",

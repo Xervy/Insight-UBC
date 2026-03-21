@@ -38,6 +38,7 @@ import {
 	RoomCreateError,
 } from "./Helpers";
 import { error } from "console";
+import { read, readdir } from "fs";
 
 /**
  * Express application.
@@ -84,9 +85,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	const DATA_FILE = datadir + "/data.json";
 
-	// await fs.access(DATA_FILE).catch(async (_err) => {
-	// 	await fs.writeFile(DATA_FILE, "[]", "utf-8");
-	// });
+	await fs.access(DATA_FILE).catch(async (_err) => {
+		await fs.writeFile(DATA_FILE, JSON.stringify({
+			course_offerings: [],
+			facilities: []
+		}), "utf-8");
+	});
 
 	const UPLOAD_FILE = "uploadFile.json";
 
@@ -106,100 +110,21 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	}
 
-	async function readUploads(): Promise<Upload[]> {
-		try {
-			const data = await fs.readFile(UPLOAD_FILE, "utf-8");
-			return JSON.parse(data);
-		} catch {
-			return [];
-		}
-	}
-
 	async function writeCoursesToData(courses: Course[]): Promise<void> {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+		const newData = {
+			course_offerings: courses,
+			facilities: buildings
+		}
 		await fs.writeFile(
 			DATA_FILE,
-			JSON.stringify(courses, null, 2), // pretty format
+			JSON.stringify(newData, null, 2), // pretty format
 			"utf-8"
 		);
 	}
 
-	async function writeUpload(data: any[]): Promise<void> {
-		await fs.writeFile(
-			UPLOAD_FILE,
-			JSON.stringify(data, null, 2), // pretty format
-			"utf-8"
-		);
-	}
-
-	function parseIntParam(value: unknown): number | null {
-		if (value === undefined) return null;
-		if (Array.isArray(value)) return null;
-		const n = Number.parseInt(String(value), 10);
-		return Number.isNaN(n) ? null : n;
-	}
-
-	// function isInt(n: unknown): n is number {
-	// 	return typeof n === "number" && Number.isInteger(n);
-	// }
-
-	// function isNum(n: unknown): n is number {
-	// 	return typeof n === "number" && Number.isFinite(n);
-	// }
-
-	function courseOffering(course: any): Offering | null {
-		const required = [
-			"id",
-			"Course",
-			"Title",
-			"Professor",
-			"Subject",
-			"Section",
-			"Year",
-			"Avg",
-			"Pass",
-			"Fail",
-			"Audit",
-		] as const;
-		for (const req of required) {
-			if (!(req in course)) return null;
-		}
-
-		const id = Number(course.id);
-		const Avg = Number(course.Avg);
-		const Pass = Number(course.Pass);
-		const Fail = Number(course.Fail);
-		const Audit = Number(course.Audit);
-
-		if (
-			!Number.isFinite(id) ||
-			typeof course.Course !== "string" ||
-			typeof course.Title !== "string" ||
-			typeof course.Professor !== "string" ||
-			typeof course.Subject !== "string" ||
-			typeof course.Section !== "string" ||
-			typeof course.Year !== "string" ||
-			!Number.isFinite(Avg) ||
-			!Number.isFinite(Pass) ||
-			!Number.isFinite(Fail) ||
-			!Number.isFinite(Audit)
-		) {
-			return null;
-		}
-
-		return {
-			id,
-			Course: course.Course,
-			Title: course.Title,
-			Professor: course.Professor,
-			Subject: course.Subject,
-			Section: course.Section,
-			Year: course.Year,
-			Avg,
-			Pass,
-			Fail,
-			Audit,
-		};
-	}
 
 	//Retrieve a list of courses
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
@@ -211,13 +136,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		};
 		let isError = false;
 
-		let limit = parseInt(req.query.limit as string);
-		let offset = parseInt(req.query.offset as string);
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
 
 		// SC 400
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes == "boolean")) {
-			res.send(400).json(errorRes);
+			res.status(400).json(errorRes);
 			return;
 		}
 
@@ -346,13 +271,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		};
 		let isError = false;
 
-		let limit = parseInt(req.query.limit as string);
-		let offset = parseInt(req.query.offset as string);
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
 
 		// SC 400
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes == "boolean")) {
-			res.send(400).json(errorRes);
+			res.status(400).json(errorRes);
 			return;
 		}
 
@@ -601,14 +526,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 
 		const id = generateSectionID();
-		res.status(202).json({
-			id: id.toString(),
-			status: "processing",
-			kind: "course_offerings",
-			message: "Dataset accepted for processing",
-		});
-
-		const courses = await readData();
 
 		const stats = {
 			id: id.toString(),
@@ -627,6 +544,15 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		} as UploadStats;
 		bulkUploads.push(stats);
 
+		res.status(202).json({
+			id: id.toString(),
+			status: "processing",
+			kind: "course_offerings",
+			message: "Dataset accepted for processing",
+		});
+
+		const courses = await readData();
+
 		// const coursesToAdd = [] as Course[];
 
 		// The file will be available as req.file
@@ -640,6 +566,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		// 	return;
 		// }
 
+		
+
 		let zip;
 		// Use JSZip to process the buffer
 		try {
@@ -650,6 +578,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
+		
 		// CHECK FOR COURSES FOLDER
 		const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
 		if (!hasCoursesFolder) {
@@ -1024,20 +953,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const data = await readData();
 		const body = req.body as SearchRequestBody;
 
-		// // SC 400
-		// const isEBNF = EBNFError(body);
-		// if (!(typeof isEBNF === "boolean")) {
-		// 	res.status(400).json(isEBNF);
-		// 	return;
-		// }
-
-		// // SC 413
-		// const isTooLarge = TooLargeError();
-		// if (!(typeof isTooLarge === "boolean")) {
-		// 	res.status(413).json(isTooLarge);
-		// 	return;
-		// }
-
 		// SC 422
 		const validation = SearchValidationError(body);
 		if (!(typeof validation === "boolean")) {
@@ -1047,13 +962,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		// SC 200
 		const where = body.query.WHERE;
-		if (!where) {
+		if (where === undefined) {
 			res.status(400).json(EBNFError("Missing WHERE"));
 			return;
 		}
 
 		const options = body.query.OPTIONS;
-		if (!options) {
+		if (options === undefined) {
 			res.status(400).json(EBNFError("Missing OPTIONS"));
 			return;
 		}
@@ -1061,6 +976,11 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const columns = options.COLUMNS;
 		if (columns && columns.length == 0) {
 			res.status(400).json(EBNFError("Missing COLUMNS"));
+			return;
+		}
+
+		if (columns.some((key) => !(MFieldArr.includes(key) || SFieldArr.includes(key)))) {
+			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
 			return;
 		}
 
@@ -1084,10 +1004,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		if (columns.some((key) => !(MFieldArr.includes(key) || SFieldArr.includes(key)))) {
-			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
-			return;
-		}
+		
 		// Initial EBNF Error Check Complete
 
 		const columnedData = OfferingFieldsForColumn(data, columns);
@@ -1127,13 +1044,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const data = JSON.parse(file) as Data;
 		const buildings = data.facilities;
 
-		let limit = parseInt(req.query.limit as string);
-		let offset = parseInt(req.query.offset as string);
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
 
 		// SC 400 
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes == "boolean")) {
-			res.send(400).json(errorRes);
+			res.status(400).json(errorRes);
 			return;
 		}
 
@@ -1233,8 +1150,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
-		let limit = parseInt(req.query.limit as string);
-		let offset = parseInt(req.query.offset as string);
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
 
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes === "boolean")) {
