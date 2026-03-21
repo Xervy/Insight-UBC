@@ -18,6 +18,25 @@ export type Section = {
 	[k: string]: any;
 };
 
+export type Building = {
+	id: string;
+	name: string;
+	address: string;
+	lat: number;
+	lon: number;
+	rooms: Room[];
+};
+
+export type Room = {
+	id: string;
+	building: string;
+	number: string;
+	type: string;
+	furniture: string;
+	href: string;
+	seats: number;
+};
+
 export type Offering = {
 	id: number;
 	Course: string;
