@@ -1,5 +1,6 @@
 import { validateHeaderName } from "http";
 import {
+	Building,
 	Comparator,
 	Course,
 	LogicalComparator,
@@ -14,13 +15,9 @@ import {
 } from "./Types";
 import { off } from "process";
 
+// Takes the list of courses, and returns the list of courses
+// where the courses have links to themselves and their sections
 export function UpdateListOfCoursesLinks(courses: Course[]) {
-	// const filteredCourses = foundOrg.courses.map((course: any) => {
-
-	//     // Turns Sections into Links to the sections
-	//     course = UpdateSectionLink(course, foundOrg)
-	// });
-
 	let filteredCourses = [];
 	for (let i = 0; i < courses.length; i++) {
 		const pushit = UpdateCourseLink(courses[i]);
@@ -30,6 +27,7 @@ export function UpdateListOfCoursesLinks(courses: Course[]) {
 	return filteredCourses;
 }
 
+// Takes a course, returns same course but with added self and section links
 export function UpdateCourseLink(course: Course) {
 	const self = `/api/v1/courses/${course.id}`;
 	const sections = `/api/v1/courses/${course.id}/sections`;
@@ -48,6 +46,8 @@ export function UpdateCourseLink(course: Course) {
 	return courseToSend;
 }
 
+// Returns the errorMessage for creating a course,
+// Returns false if there is no error
 export function CourseCreateError(body: any) {
 	const errorMessage = {
 		error: "Validation failed",
@@ -85,6 +85,8 @@ export function CourseCreateError(body: any) {
 	return isError;
 }
 
+// Takes the list of sections, and returns the list of sections
+// where the sections have links to themselves and their course
 export function UpdateListOfSectionsLinks(sections: Section[], course: Course) {
 	let filteredCourses = [];
 	for (let i = 0; i < sections.length; i++) {
@@ -95,6 +97,7 @@ export function UpdateListOfSectionsLinks(sections: Section[], course: Course) {
 	return filteredCourses;
 }
 
+// Takes a section, returns same section but with added self and course links
 export function UpdateSectionLink(section: Section, course: Course) {
 	const self = `/api/v1/courses/${course.id}/sections/${section.id}`;
 	const courselink = `/api/v1/courses/${course.id}`;
@@ -116,6 +119,8 @@ export function UpdateSectionLink(section: Section, course: Course) {
 	return courseToSend;
 }
 
+// Returns the errorMessage for creating a section,
+// Returns false if there is no error
 export function SectionCreateError(body: any) {
 	const errorMessage = {
 		error: "Validation failed",
@@ -192,25 +197,19 @@ export function SectionCreateError(body: any) {
 	return isError;
 }
 
+// Generates a unique id for bulk uploads
 export function generateSectionID() {
 	return Date.now();
 }
 
 // Formats Error Message for SC 400
-// TODO:
+// for Search
 export function EBNFError(message: string) {
 	const errorMes = {
 		error: "Invalid query",
 		message: message,
 	};
 	return errorMes;
-}
-
-// Checks if the result is too large, return error message or false if no error
-// SC 413 in post("/api/v1/search")
-// TODO:
-export function TooLargeError() {
-	return false;
 }
 
 // Check if body produces a 422 error
@@ -347,7 +346,7 @@ function SearchIS(comparator: SFieldComparator, dataAsColumns: any[]): any[] {
 			}
 		} else if (stringToMatch.startsWith("\*")) {
 			const minusWildcards = stringToMatch.substring(1);
-			
+
 			for (const obj of dataAsColumns) {
 				if (obj[fieldOfInterest].endsWith(minusWildcards)) {
 					fitsCriteria.push(obj);
@@ -392,7 +391,6 @@ function isFilterObject(str: string) {
 
 // Given a comparator, return the filtered list of courses
 // that match what the comparator asked for
-// TODO
 export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
 	if (Object.keys(comparator).length == 0) {
 		return dataAsColumns;
@@ -420,7 +418,8 @@ export function Search(comparator: Comparator, dataAsColumns: any[]): any[] {
 	}
 }
 
-// a
+// Turns the list of Courses into just a list of objects with the fields in columns
+// and returns it (Doesnt change original list)
 export function OfferingFieldsForColumn(data: Course[], columns: (SField & MField)[]) {
 	const cleanedData = [];
 	for (const course of data) {
@@ -447,5 +446,32 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SField & MFiel
 		}
 	}
 	return cleanedData;
+}
+
+// Takes a list of buildings and returns the list of buildings without
+// the parameter "rooms", instead it has a "links" parameter to itself and rooms 
+export function UpdateListOfBuildingsLinks(buildings: Building[]) {
+	return buildings.map((building) => {
+		UpdateBuildingLink(building);
+	});
+
+}
+
+// Takes a building and returns it with links to self and rooms
+// Instead of a list of Rooms
+export function UpdateBuildingLink(building: Building) {
+	const self = `/api/v2/buildings/${building.id}`;
+	const rooms = `/api/v2/buildings/${building.id}/rooms`;
+	return {
+		id: building.id,
+		name: building.name,
+		address: building.address,
+		lat: building.lat,
+		lon: building.lon,
+		links: {
+			self: self,
+			rooms: rooms
+		}
+	};
 
 }

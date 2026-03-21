@@ -24,7 +24,6 @@ import {
 	Search,
 	SearchValidationError,
 	SectionCreateError,
-	TooLargeError,
 	UpdateCourseLink,
 	UpdateListOfCoursesLinks,
 	UpdateListOfSectionsLinks,
