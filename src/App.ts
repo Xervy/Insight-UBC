@@ -31,7 +31,13 @@ import {
 	UpdateSectionLink,
 	UpdateListOfBuildingsLinks,
 	RetrieveAllQueryError,
+	UpdateBuildingLink,
+	BuildingCreateError,
+	UpdateListOfRoomsLinks,
+	UpdateRoomLink,
+	RoomCreateError,
 } from "./Helpers";
+import { error } from "console";
 
 /**
  * Express application.
@@ -109,10 +115,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	}
 
-	async function writeData(data: any[]): Promise<void> {
+	async function writeCoursesToData(courses: Course[]): Promise<void> {
 		await fs.writeFile(
 			DATA_FILE,
-			JSON.stringify(data, null, 2), // pretty format
+			JSON.stringify(courses, null, 2), // pretty format
 			"utf-8"
 		);
 	}
@@ -207,7 +213,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		let limit = parseInt(req.query.limit as string);
 		let offset = parseInt(req.query.offset as string);
-		
+
 		// SC 400
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes == "boolean")) {
@@ -280,7 +286,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				sections: [],
 			} as Course;
 			data.push(courseToPush);
-			await writeData(data);
+			await writeCoursesToData(data);
 			const cleanedCourse = UpdateCourseLink(courseToPush);
 			res.status(201).json(cleanedCourse);
 			return;
@@ -290,7 +296,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		alreadyExists.dept = body.dept;
 		alreadyExists.code = body.code;
 		alreadyExists.sections = [];
-		await writeData(data);
+		await writeCoursesToData(data);
 		res.status(204).send();
 	});
 
@@ -309,7 +315,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 		const courseDelete = data[index];
 		data.splice(index, 1);
-		await writeData(data);
+		await writeCoursesToData(data);
 		res.status(200).json({
 			id: courseDelete.id,
 			title: courseDelete.title,
@@ -440,7 +446,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			alreadyExists.pass = body.pass;
 			alreadyExists.fail = body.fail;
 			alreadyExists.audit = body.audit;
-			await writeData(data);
+			await writeCoursesToData(data);
 			res.status(204).send();
 			return;
 		}
@@ -456,7 +462,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			audit: body.audit,
 		};
 		course.sections.push(toPut);
-		await writeData(data);
+		await writeCoursesToData(data);
 		const response = UpdateSectionLink(toPut, course);
 		res.status(201).json(response);
 	});
@@ -487,7 +493,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 		const sectionDelete = course.sections[index];
 		course.sections.splice(index, 1);
-		await writeData(data);
+		await writeCoursesToData(data);
 		res.status(200).json(sectionDelete);
 	});
 
@@ -799,7 +805,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.courses_seen = stats.courses_added + stats.courses_modified;
 		stats.sections_seen = stats.sections_added + stats.sections_modified;
 		// Write Json to file
-		await writeData(courses);
+		await writeCoursesToData(courses);
 		stats.status = "completed";
 	});
 
@@ -1130,7 +1136,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.send(400).json(errorRes);
 			return;
 		}
-		
+
 		const buildingsWithLinks = UpdateListOfBuildingsLinks(buildings);
 
 		const sort = [...buildings].sort((a, b) => a.id.localeCompare(b.id));
@@ -1142,6 +1148,240 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			offset,
 			items: buildingsWithLinks
 		});
+	});
+
+	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+
+		const building = buildings.find((b) => b.id == buildingID);
+
+		// SC 404
+		if (!building) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+		res.status(200).json(UpdateBuildingLink(building));
+	});
+
+	app.put("/api/v2/buildings/:buildingID", async (req, res) => {
+		const body = req.body;
+		// SC 422
+		const errorMessage = BuildingCreateError(body);
+		if (!(typeof errorMessage === "boolean")) {
+			res.status(422).json(errorMessage);
+			return;
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+
+		const buildings = data.facilities;
+		const buildingID = req.params.buildingID;
+
+		// SC 204
+		const alreadyExists = buildings.find((b) => b.id == buildingID);
+		if (alreadyExists) {
+			alreadyExists.name = body.name;
+			alreadyExists.address = body.address;
+			alreadyExists.lat = body.lat;
+			alreadyExists.lon = body.lon;
+			alreadyExists.rooms = [];
+			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			res.status(204).send();
+			return;
+		}
+
+		const makeBuilding = {
+			id: buildingID,
+			name: body.name,
+			address: body.address,
+			lat: body.lat,
+			lon: body.lon,
+			rooms: []
+		};
+		buildings.push(makeBuilding);
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(201).json(UpdateBuildingLink(makeBuilding));
+	});
+
+	app.delete("/api/v2/buildings/:buildingID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+		const buildingsAfterDelete = buildings.filter((b) => !(b.id == buildingID));
+		data.facilities = buildingsAfterDelete;
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(200).json(buildingExists);
+	});
+
+	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
+		let limit = parseInt(req.query.limit as string);
+		let offset = parseInt(req.query.offset as string);
+
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes === "boolean")) {
+			res.status(400).json(errorRes);
+			return;
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+
+		const rooms = buildingExists.rooms;
+		const roomsWithLinks = UpdateListOfRoomsLinks(rooms, buildingExists);
+		res.status(200).json({
+			total: rooms.length,
+			limit,
+			offset,
+			items: roomsWithLinks
+		});
+	});
+
+	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+
+		const rooms = buildingExists.rooms;
+		const roomID = req.params.roomID;
+		const roomExists = rooms.find((r) => r.id == roomID);
+		if (!roomExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no room with id ${roomID}`
+			});
+			return;
+		}
+
+		res.status(200).json(UpdateRoomLink(roomExists, buildingExists));
+	});
+
+	app.put("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
+		const body = req.body;
+		const buildingID = req.params.buildingID;
+		const roomID = req.params.roomID;
+
+		// SC 422
+		const errorMessage = RoomCreateError(body, buildingID);
+		if (!(typeof errorMessage === "boolean")) {
+			res.status(422).json(errorMessage);
+			return;
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		// SC 404
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+
+		// SC 204
+		const rooms = buildingExists.rooms;
+		const roomExists = rooms.find((r) => r.id == roomID);
+		if (roomExists) {
+			// Didnt do building because it shouldnt change
+			roomExists.number = body.number;
+			roomExists.type = body.type;
+			roomExists.furniture = body.furniture;
+			roomExists.href = body.href;
+			roomExists.seats = body.seats;
+			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			res.status(204).send();
+			return;
+		}
+
+		const makeRoom = {
+			id: roomID,
+			building: body.building,
+			number: body.number,
+			type: body.type,
+			furniture: body.furniture,
+			href: body.href,
+			seats: body.seats
+		}
+		rooms.push(makeRoom);
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(201).json(UpdateRoomLink(makeRoom, buildingExists))
+	});
+
+	app.delete("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+		const roomID = req.params.roomID;
+
+		// SC 404
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+		const rooms = buildingExists.rooms;
+		const roomExists = rooms.find((r) => r.id == roomID);
+		if (!roomExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no room with id ${roomID}`
+			});
+			return;
+		}
+
+		const roomsAfterDelete = rooms.filter((r) => !(r.id == roomID));
+		buildingExists.rooms = roomsAfterDelete;
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(200).json(roomExists);
 	});
 
 

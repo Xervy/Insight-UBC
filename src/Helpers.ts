@@ -7,6 +7,7 @@ import {
 	MField,
 	MFieldComparator,
 	NegationComparator,
+	Room,
 	SearchEBNFError,
 	SearchRequestBody,
 	Section,
@@ -481,6 +482,33 @@ export function UpdateBuildingLink(building: Building) {
 	};
 }
 
+export function UpdateListOfRoomsLinks(rooms: Room[], building: Building) {
+	const roomsWithLinks = [];
+	for (let i = 0; i < rooms.length; i++) {
+		const updatedRoom = UpdateRoomLink(rooms[i], building);
+		roomsWithLinks.push(updatedRoom);
+	}
+	return roomsWithLinks;
+}
+
+export function UpdateRoomLink(room: Room, bld: Building) {
+	const self = `/api/v2/buildings/${bld.id}/rooms/${room.id}`;
+	const buildingLink = `/api/v2/buildings/${bld.id}`;
+	return {
+		id: room.id,
+		building: room.building,
+		number: room.number,
+		type: room.type,
+		furniture: room.furniture,
+		href: room.href,
+		seats: room.seats,
+		links: {
+			self: self,
+			building: buildingLink
+		}
+	};
+}
+
 // returns the error message for when query is incorrect for retrieving
 // courses, sections, buildings, rooms. Returns false if no error
 export function RetrieveAllQueryError(limit: any, offset: any) {
@@ -509,4 +537,115 @@ export function RetrieveAllQueryError(limit: any, offset: any) {
 			return errorMessage;
 		}
 		return isError;
+}
+
+// Returns the validation errorMessage for creating a building,
+// Returns false if there is no error
+export function BuildingCreateError(body: any) {
+	const errorMessage = {
+		error: "Validation failed",
+		fields: {} as any,
+	}
+	let isError = false;
+
+	if (body.name == undefined) {
+		errorMessage.fields["name"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.name === "string")) {
+		errorMessage.fields["name"] = "expected a string";
+		isError = true;
+	}
+
+	if (body.address == undefined) {
+		errorMessage.fields["address"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.address === "string")) {
+		errorMessage.fields["address"] = "expected a string";
+		isError = true;
+	}
+
+	if (body.lat == undefined) {
+		errorMessage.fields["lat"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.lat === "string")) {
+		errorMessage.fields["lat"] = "expected a number";
+		isError = true;
+	}
+
+	if (body.lon == undefined) {
+		errorMessage.fields["lon"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.lon === "string")) {
+		errorMessage.fields["lon"] = "expected a number";
+		isError = true;
+	}
+
+	if (isError) {
+		return errorMessage;
+	}
+	return isError;
+}
+
+export function RoomCreateError(body: any, buildingID: string) {
+	const errorMessage = {
+		error: "Validation failed",
+		fields: {} as any,
+	}
+	let isError = false;
+
+	if (body.building == undefined) {
+		errorMessage.fields["building"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.building === "string")) {
+		errorMessage.fields["building"] = "expected a string";
+		isError = true;
+	} else if (!(body.building == buildingID)) {
+		errorMessage.fields["building"] = "must match parent building in path";
+		isError = true;
+	}
+
+	if (body.number == undefined) {
+		errorMessage.fields["number"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.number === "string")) {
+		errorMessage.fields["number"] = "expected a string";
+		isError = true;
+	}
+
+	if (body.type == undefined) {
+		errorMessage.fields["type"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.type === "string")) {
+		errorMessage.fields["type"] = "expected a string";
+		isError = true;
+	}
+
+	if (body.furniture == undefined) {
+		errorMessage.fields["furniture"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.furniture === "string")) {
+		errorMessage.fields["furniture"] = "expected a string";
+		isError = true;
+	}
+
+	if (body.href == undefined) {
+		errorMessage.fields["href"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.href === "string")) {
+		errorMessage.fields["href"] = "expected a string";
+		isError = true;
+	}
+
+	if (body.seats == undefined) {
+		errorMessage.fields["seats"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.seats === "number") || body.seats < 0) {
+		errorMessage.fields["seats"] = "expected a number >= 0";
+		isError = true;
+	}
+
+	if (isError) {
+		return errorMessage;
+	}
+	return isError;
 }
