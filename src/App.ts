@@ -5,16 +5,40 @@ import cors from "cors";
 import multer from "multer";
 import JSZip from "jszip";
 
-import { Course, Section, Offering, Upload, UploadStats } from "./Types";
 import {
+	Course,
+	Section,
+	Offering,
+	Upload,
+	UploadStats,
+	SearchRequestBody,
+	MFieldArrOffering,
+	SFieldArrOffering,
+	SearchEBNFError,
+	Data,
+} from "./Types";
+import {
+	OfferingFieldsForColumn,
 	CourseCreateError,
+	EBNFError,
 	generateSectionID,
+	SearchOfferings,
+	SearchValidationError,
 	SectionCreateError,
 	UpdateCourseLink,
 	UpdateListOfCoursesLinks,
 	UpdateListOfSectionsLinks,
 	UpdateSectionLink,
+	UpdateListOfBuildingsLinks,
+	RetrieveAllQueryError,
+	UpdateBuildingLink,
+	BuildingCreateError,
+	UpdateListOfRoomsLinks,
+	UpdateRoomLink,
+	RoomCreateError,
 } from "./Helpers";
+import { error } from "console";
+import { read, readdir } from "fs";
 
 /**
  * Express application.
@@ -61,9 +85,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	const DATA_FILE = datadir + "/data.json";
 
-	// await fs.access(DATA_FILE).catch(async (_err) => {
-	// 	await fs.writeFile(DATA_FILE, "[]", "utf-8");
-	// });
+	await fs.access(DATA_FILE).catch(async (_err) => {
+		await fs.writeFile(DATA_FILE, JSON.stringify({
+			course_offerings: [],
+			facilities: []
+		}), "utf-8");
+	});
 
 	const UPLOAD_FILE = "uploadFile.json";
 
@@ -76,106 +103,28 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	async function readData(): Promise<Course[]> {
 		try {
 			const data = await fs.readFile(DATA_FILE, "utf-8");
-			return JSON.parse(data) as Course[];
+			const unfixedForDeprecated = JSON.parse(data) as Data;
+			return unfixedForDeprecated.course_offerings;
 		} catch {
 			return [];
 		}
 	}
 
-	async function readUploads(): Promise<Upload[]> {
-		try {
-			const data = await fs.readFile(UPLOAD_FILE, "utf-8");
-			return JSON.parse(data);
-		} catch {
-			return [];
+	async function writeCoursesToData(courses: Course[]): Promise<void> {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+		const newData = {
+			course_offerings: courses,
+			facilities: buildings
 		}
-	}
-
-	async function writeData(data: any[]): Promise<void> {
 		await fs.writeFile(
 			DATA_FILE,
-			JSON.stringify(data, null, 2), // pretty format
+			JSON.stringify(newData, null, 2), // pretty format
 			"utf-8"
 		);
 	}
 
-	async function writeUpload(data: any[]): Promise<void> {
-		await fs.writeFile(
-			UPLOAD_FILE,
-			JSON.stringify(data, null, 2), // pretty format
-			"utf-8"
-		);
-	}
-
-	function parseIntParam(value: unknown): number | null {
-		if (value === undefined) return null;
-		if (Array.isArray(value)) return null;
-		const n = Number.parseInt(String(value), 10);
-		return Number.isNaN(n) ? null : n;
-	}
-
-	// function isInt(n: unknown): n is number {
-	// 	return typeof n === "number" && Number.isInteger(n);
-	// }
-
-	// function isNum(n: unknown): n is number {
-	// 	return typeof n === "number" && Number.isFinite(n);
-	// }
-
-	function courseOffering(course: any): Offering | null {
-		const required = [
-			"id",
-			"Course",
-			"Title",
-			"Professor",
-			"Subject",
-			"Section",
-			"Year",
-			"Avg",
-			"Pass",
-			"Fail",
-			"Audit",
-		] as const;
-		for (const req of required) {
-			if (!(req in course)) return null;
-		}
-
-		const id = Number(course.id);
-		const Avg = Number(course.Avg);
-		const Pass = Number(course.Pass);
-		const Fail = Number(course.Fail);
-		const Audit = Number(course.Audit);
-
-		if (
-			!Number.isFinite(id) ||
-			typeof course.Course !== "string" ||
-			typeof course.Title !== "string" ||
-			typeof course.Professor !== "string" ||
-			typeof course.Subject !== "string" ||
-			typeof course.Section !== "string" ||
-			typeof course.Year !== "string" ||
-			!Number.isFinite(Avg) ||
-			!Number.isFinite(Pass) ||
-			!Number.isFinite(Fail) ||
-			!Number.isFinite(Audit)
-		) {
-			return null;
-		}
-
-		return {
-			id,
-			Course: course.Course,
-			Title: course.Title,
-			Professor: course.Professor,
-			Subject: course.Subject,
-			Section: course.Section,
-			Year: course.Year,
-			Avg,
-			Pass,
-			Fail,
-			Audit,
-		};
-	}
 
 	//Retrieve a list of courses
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
@@ -187,30 +136,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		};
 		let isError = false;
 
-		let limit = parseInt(req.query.limit as string);
-		let offset = parseInt(req.query.offset as string);
-		if (isNaN(limit)) {
-			limit = 100;
-		}
-		if (limit < 1 || limit > 5000) {
-			errorMessage.params["limit"] = "expected an integer between 1 and 5000";
-			isError = true;
-			// res.status(400).json({ error: "limit must be between 1 and 5000" });
-			// return;
-		}
-		if (isNaN(offset)) {
-			offset = 0;
-		}
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
 
-		if (offset < 0) {
-			errorMessage.params["offset"] = "expected an integer >= 0";
-			isError = true;
-			// res.status(400).json({ error: "offset must be >= 0" });
-			// return;
-		}
-
-		if (isError) {
-			res.status(400).json(errorMessage);
+		// SC 400
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes == "boolean")) {
+			res.status(400).json(errorRes);
 			return;
 		}
 
@@ -265,11 +197,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		// const { title, dept, code } = req.body ?? {};
-		// if (typeof title !== "string" || typeof dept !== "string" || typeof code !== "string") {
-		// 	res.status(422).json({ error: "title, dept, and code are required and must be strings" });
-		// 	return;
-		// }
 		const data: Course[] = await readData();
 		// const newCourse: Course = { id, title, dept, code, sections };
 
@@ -284,7 +211,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				sections: [],
 			} as Course;
 			data.push(courseToPush);
-			await writeData(data);
+			await writeCoursesToData(data);
 			const cleanedCourse = UpdateCourseLink(courseToPush);
 			res.status(201).json(cleanedCourse);
 			return;
@@ -294,7 +221,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		alreadyExists.dept = body.dept;
 		alreadyExists.code = body.code;
 		alreadyExists.sections = [];
-		await writeData(data);
+		await writeCoursesToData(data);
 		res.status(204).send();
 	});
 
@@ -313,7 +240,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 		const courseDelete = data[index];
 		data.splice(index, 1);
-		await writeData(data);
+		await writeCoursesToData(data);
 		res.status(200).json({
 			id: courseDelete.id,
 			title: courseDelete.title,
@@ -344,43 +271,15 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		};
 		let isError = false;
 
-		let limit = parseInt(req.query.limit as string);
-		let offset = parseInt(req.query.offset as string);
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
 
-		if (isNaN(limit)) {
-			limit = 100;
-		}
-		if (limit < 1 || limit > 5000) {
-			errorMessage.params["limit"] = "expected an integer between 1 and 5000";
-			isError = true;
-			// res.status(400).json({ error: "limit must be between 1 and 5000" });
-			// return;
-		}
-		if (isNaN(offset)) {
-			offset = 0;
-		}
-
-		if (offset < 0) {
-			errorMessage.params["offset"] = "expected an integer >= 0";
-			isError = true;
-			// res.status(400).json({ error: "offset must be >= 0" });
-			// return;
-		}
-
-		if (isError) {
-			res.status(400).json(errorMessage);
+		// SC 400
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes == "boolean")) {
+			res.status(400).json(errorRes);
 			return;
 		}
-
-		// const limitParsed = parseIntParam(req.query.limit);
-		// const offsetParsed = parseIntParam(req.query.offset);
-
-		// const limit = limitParsed ?? 100;
-		// const offset = offsetParsed ?? 0;
-		// if (limit < 1 || limit > 5000 || offset < 0) {
-		// 	res.status(400).json({ error: "Invalid request parameters" });
-		// 	return;
-		// }
 
 		const sections: Section[] = Array.isArray(course.sections) ? course.sections : [];
 		const sortedSection = [...sections].sort((a, b) =>
@@ -463,23 +362,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		// const { instructor, year, avg, pass, fail, audit } = req.body ?? {};
-		// const yearCheck = isInt(year) && /^(19|20)\d{2}$/.test(String(year));
-		// const avgCheck = isNum(avg) && avg >= 0 && avg <= 100;
-		// const check = (x: unknown) => isInt(x) && x >= 0;
-		// if (
-		// 	typeof instructor != "string" ||
-		// 	instructor.length === 0 ||
-		// 	!yearCheck ||
-		// 	!avgCheck ||
-		// 	!check(pass) ||
-		// 	!check(fail) ||
-		// 	!check(audit)
-		// ) {
-		// 	res.status(422).json({ error: "Validation failed" });
-		// 	return;
-		// }
-
 		const alreadyExists = course.sections.find((section) => section.id == sectionId);
 		if (alreadyExists) {
 			// SC 204
@@ -489,7 +371,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			alreadyExists.pass = body.pass;
 			alreadyExists.fail = body.fail;
 			alreadyExists.audit = body.audit;
-			await writeData(data);
+			await writeCoursesToData(data);
 			res.status(204).send();
 			return;
 		}
@@ -505,42 +387,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			audit: body.audit,
 		};
 		course.sections.push(toPut);
-		await writeData(data);
+		await writeCoursesToData(data);
 		const response = UpdateSectionLink(toPut, course);
 		res.status(201).json(response);
-
-		// const newSection: Section = {
-		// 	id: sectionId,
-		// 	instructor: req.body.instructor,
-		// 	year: req.body.year,
-		// 	avg: req.body.avg,
-		// 	pass: req.body.pass,
-		// 	fail: req.body.fail,
-		// 	audit: req.body.audit,
-		// };
-
-		// const index = course.sections.findIndex((s) => String(s.id) === sectionId);
-		// if (index === -1) {
-		// 	course.sections.push(newSection);
-		// 	await writeData(data);
-		// 	res.status(201).json({
-		// 		id: sectionId,
-		// 		instructor: req.body.instructor,
-		// 		year: req.body.year,
-		// 		avg: req.body.avg,
-		// 		pass: req.body.pass,
-		// 		fail: req.body.fail,
-		// 		audit: req.body.audit,
-		// 		links: {
-		// 			self: `/api/v1/courses/${courseId}/sections/${sectionId}`,
-		// 			course: `/api/v1/courses/${courseId}`,
-		// 		},
-		// 	});
-		// 	return;
-		// }
-		// course.sections[index] = newSection;
-		// await writeData(data);
-		// res.status(204).send();
 	});
 
 	//Remove a section from a course
@@ -569,23 +418,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 		const sectionDelete = course.sections[index];
 		course.sections.splice(index, 1);
-		await writeData(data);
+		await writeCoursesToData(data);
 		res.status(200).json(sectionDelete);
 	});
 
-	//Retrieve upload statistics
-	// app.get("/api/v1/datasets/:id", async (req, res): Promise<void> => {
-	// 	const id = req.params.id;
-	// 	const datas = await readUploads();
-	// 	const data = datas.find((j) => j.id === id);
-
-	// 	if (!data) {
-	// 		res.status(404).json({ error: "Not found", message: "no dataset with id 'upload_12345'" });
-	// 		return;
-	// 	}
-
-	// 	res.status(200).json(data);
-	// });
 	app.get("/api/v1/datasets/:dataset", async (req, res) => {
 		const datasetID = req.params.dataset;
 		let found = false;
@@ -661,28 +497,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	});
 
-	// app.post("/api/v1/datasets", upload.single("archive"), async (req, res): Promise<void> => {
-	// 	const kind = req.body.kind;
-	// 	if (kind !== "course_offerings" || !req.file) {
-	// 		res.status(422).json({ error: "Validation failed" });
-	// 		return;
-	// 	}
-	// 	const dataId = `upload_${Date.now()}_${Math.random().toString(16).slice(2)}`; //ChatGPT
-	// 	const data: Upload = {
-	// 		id: dataId,
-	// 		status: "processing",
-	// 		kind: "course_offerings",
-	// 		message: "Dataset accepted for processing",
-	// 	};
-
-	// 	const datas = await readUploads();
-	// 	datas.push(data);
-	// 	await writeUpload(datas);
-
-	// 	res.status(202).json(data);
-
-	// 	setImmediate(() => processDataset(dataId, req.file!.buffer).catch(() => void 0)); //ChatGPT
-	// });
 	app.post("/api/v1/datasets", upload.single("archive"), async (req, res) => {
 		// SC 422
 		let isError = false;
@@ -712,14 +526,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 
 		const id = generateSectionID();
-		res.status(202).json({
-			id: id.toString(),
-			status: "processing",
-			kind: "course_offerings",
-			message: "Dataset accepted for processing",
-		});
-
-		const courses = await readData();
 
 		const stats = {
 			id: id.toString(),
@@ -738,6 +544,15 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		} as UploadStats;
 		bulkUploads.push(stats);
 
+		res.status(202).json({
+			id: id.toString(),
+			status: "processing",
+			kind: "course_offerings",
+			message: "Dataset accepted for processing",
+		});
+
+		const courses = await readData();
+
 		// const coursesToAdd = [] as Course[];
 
 		// The file will be available as req.file
@@ -751,6 +566,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		// 	return;
 		// }
 
+		
+
 		let zip;
 		// Use JSZip to process the buffer
 		try {
@@ -761,6 +578,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
+		
 		// CHECK FOR COURSES FOLDER
 		const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
 		if (!hasCoursesFolder) {
@@ -916,36 +734,104 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.courses_seen = stats.courses_added + stats.courses_modified;
 		stats.sections_seen = stats.sections_added + stats.sections_modified;
 		// Write Json to file
-		await writeData(courses);
+		await writeCoursesToData(courses);
 		stats.status = "completed";
 	});
 
-	// async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
-	// 	const datas = await readUploads();
-	// 	const data = datas.find((j) => j.id === dataId);
-	// 	if (!data) return;
 
-	// 	const stats = {
-	// 		files_total: 0,
-	// 		files_processed: 0,
-	// 		files_skipped: 0,
-	// 		courses_seen: 0,
-	// 		courses_added: 0,
-	// 		courses_modified: 0,
-	// 		sections_seen: 0,
-	// 		sections_added: 0,
-	// 		sections_modified: 0,
-	// 	}; //ChatGPT
+	/*
+	async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
+		const datas = await readUploads();
+		const data = datas.find((j) => j.id === dataId);
+		if (!data) return;
 
-	// 	let zip: JSZip;
-	// 	try {
-	// 		zip = await JSZip().loadAsync(zipBuffer);
-	// 	} catch {
-	// 		data.status = "failed";
-	// 		data.stats = stats;
-	// 		await writeUpload(datas);
-	// 		return;
-	// 	} //ChatGPT
+		const stats = {
+			files_total: 0,
+			files_processed: 0,
+			files_skipped: 0,
+			courses_seen: 0,
+			courses_added: 0,
+			courses_modified: 0,
+			sections_seen: 0,
+			sections_added: 0,
+			sections_modified: 0,
+		}; //ChatGPT
+
+		let zip: JSZip;
+		try {
+			zip = await JSZip().loadAsync(zipBuffer);
+		} catch {
+			data.status = "failed";
+			data.stats = stats;
+			await writeUpload(datas);
+			return;
+		} //ChatGPT
+
+		const checkRoot = Object.keys(zip.files).some((name) => name.startsWith("courses/")); //ChatGPT
+		if (!checkRoot) {
+			data.status = "failed";
+			data.stats = stats;
+			await writeUpload(datas);
+			return;
+		}
+
+		const courseName = Object.keys(zip.files).filter(
+			(name) => name.startsWith("courses/") && !zip.files[name].dir && name.toLowerCase().endsWith(".json")
+		);
+		const offerings: Offering[] = [];
+		stats.files_total = courseName.length;
+
+		for (const name of courseName) {
+			try {
+				const text = await zip.files[name].async("string");
+				const parsed = JSON.parse(text);
+				if (!Array.isArray(parsed.result || !parsed)) {
+					stats.files_skipped = stats.files_skipped + 1;
+					continue;
+				}
+				stats.files_processed = stats.files_processed + 1;
+				for (const result of parsed.result) {
+					const offer = courseOffering(result);
+					if (offer) offerings.push(offer);
+				}
+			} catch {
+				stats.files_skipped = stats.files_skipped + 1;
+			}
+		}
+		const courseData = await readData();
+		const courseMap = new Map<string, Course>();
+		for (const course of courseData) {
+			courseMap.set(course.id, course);
+		}
+
+		for (const offer of offerings) {
+			stats.courses_seen = stats.courses_seen + 1;
+			const courseId = `${offer.Subject}${offer.Course}`; //ChatGPT
+			const current = courseMap.get(courseId);
+
+			if (!current) {
+				const newCourse: Course = {
+					id: courseId,
+					code: offer.Course,
+					dept: offer.Subject,
+					title: offer.Title,
+					sections: [],
+				};
+				courseMap.set(courseId, newCourse);
+				courseData.push(newCourse);
+				stats.courses_added = stats.courses_added + 1;
+			} else {
+				let updated = false;
+				if (current.code != offer.Course) {
+					current.code = offer.Course;
+					updated = true;
+				}
+
+				if (current.dept != offer.Subject) {
+					current.dept = offer.Subject;
+					updated = true;
+				}
+
 
 	// 	const checkRoot = Object.keys(zip.files).some((name) => name.startsWith("courses/")); //ChatGPT
 	// 	if (!checkRoot) {
@@ -1059,12 +945,361 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	// 	}
 	// 	await writeData(courseData);
 
-	// 	data.status = "completed";
-	// 	data.stats = stats;
-	// 	data.message = "Dataset processing complete";
 
-	// 	await writeUpload(datas);
-	// }
+		await writeUpload(datas);
+	}*/
+
+	app.post("/api/v1/search", async (req, res) => {
+		const data = await readData();
+		const body = req.body as SearchRequestBody;
+
+		// SC 422
+		const validation = SearchValidationError(body);
+		if (!(typeof validation === "boolean")) {
+			res.status(422).json(validation);
+			return;
+		}
+
+		// SC 200
+		const where = body.query.WHERE;
+		if (where === undefined) {
+			res.status(400).json(EBNFError("Missing WHERE"));
+			return;
+		}
+
+		const options = body.query.OPTIONS;
+		if (options === undefined) {
+			res.status(400).json(EBNFError("Missing OPTIONS"));
+			return;
+		}
+
+		const columns = options.COLUMNS;
+		if (columns && columns.length == 0) {
+			res.status(400).json(EBNFError("Missing COLUMNS"));
+			return;
+		}
+
+		if (columns.some((key) => !(MFieldArrOffering.includes(key) || SFieldArrOffering.includes(key)))) {
+			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
+			return;
+		}
+
+		const order = options.ORDER;
+		if (order) {
+			if (!columns.includes(order)) {
+				res.status(400).json(EBNFError("ORDER must be a key in COLUMNS"));
+				return;
+			}
+		}
+
+		const whereKeys = Object.keys(where);
+		if (whereKeys.length > 1) {
+			res.status(400).json(EBNFError("WHERE must be an object with at most one FILTER"));
+			return;
+		}
+
+		const optionKeys = Object.keys(options);
+		if (!optionKeys.includes("COLUMNS")) {
+			res.status(400).json(EBNFError("OPTIONS must be an object with COLUMNS and optional ORDER"));
+			return;
+		}
+		// Initial EBNF Error Check Complete
+
+		const columnedData = OfferingFieldsForColumn(data, columns);
+
+		try {
+			const filteredCourses = SearchOfferings(where, columnedData);
+			if (filteredCourses.length > 5000) {
+				res.status(413).json({
+					error: "Too many results",
+					message: "Query would return more than 5000 results",
+					limit: 5000,
+				});
+				return;
+			}
+
+			if (order) {
+				columnedData.sort((a: any, b: any) => {
+					if (typeof a[order] == 'string') {
+						return a[order].localeCompare(b[order]);
+					} else if (typeof a[order] == 'number') {
+						return a[order] - b[order];
+					} else {
+						return -1;
+					}
+				});
+			}
+
+			res.status(200).json(filteredCourses);
+		} catch (e: any) {
+			res.status(400).json(EBNFError((e as SearchEBNFError).message));
+		}
+	});
+
+	app.get("/api/v2/buildings", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
+
+		// SC 400 
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes == "boolean")) {
+			res.status(400).json(errorRes);
+			return;
+		}
+
+		const buildingsWithLinks = UpdateListOfBuildingsLinks(buildings);
+
+		const sort = [...buildings].sort((a, b) => a.id.localeCompare(b.id));
+		let items = sort.slice(offset, offset + limit);
+
+		res.status(200).json({
+			total: buildings.length,
+			limit,
+			offset,
+			items: buildingsWithLinks
+		});
+	});
+
+	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+
+		const building = buildings.find((b) => b.id == buildingID);
+
+		// SC 404
+		if (!building) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+		res.status(200).json(UpdateBuildingLink(building));
+	});
+
+	app.put("/api/v2/buildings/:buildingID", async (req, res) => {
+		const body = req.body;
+		// SC 422
+		const errorMessage = BuildingCreateError(body);
+		if (!(typeof errorMessage === "boolean")) {
+			res.status(422).json(errorMessage);
+			return;
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+
+		const buildings = data.facilities;
+		const buildingID = req.params.buildingID;
+
+		// SC 204
+		const alreadyExists = buildings.find((b) => b.id == buildingID);
+		if (alreadyExists) {
+			alreadyExists.name = body.name;
+			alreadyExists.address = body.address;
+			alreadyExists.lat = body.lat;
+			alreadyExists.lon = body.lon;
+			alreadyExists.rooms = [];
+			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			res.status(204).send();
+			return;
+		}
+
+		const makeBuilding = {
+			id: buildingID,
+			name: body.name,
+			address: body.address,
+			lat: body.lat,
+			lon: body.lon,
+			rooms: []
+		};
+		buildings.push(makeBuilding);
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(201).json(UpdateBuildingLink(makeBuilding));
+	});
+
+	app.delete("/api/v2/buildings/:buildingID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+		const buildingsAfterDelete = buildings.filter((b) => !(b.id == buildingID));
+		data.facilities = buildingsAfterDelete;
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(200).json(buildingExists);
+	});
+
+	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
+		let limit = parseInt(req.query.limit as string ?? 100);
+		let offset = parseInt(req.query.offset as string ?? 0);
+
+		const errorRes = RetrieveAllQueryError(limit, offset);
+		if (!(typeof errorRes === "boolean")) {
+			res.status(400).json(errorRes);
+			return;
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+
+		const rooms = buildingExists.rooms;
+		const roomsWithLinks = UpdateListOfRoomsLinks(rooms, buildingExists);
+		res.status(200).json({
+			total: rooms.length,
+			limit,
+			offset,
+			items: roomsWithLinks
+		});
+	});
+
+	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+
+		const rooms = buildingExists.rooms;
+		const roomID = req.params.roomID;
+		const roomExists = rooms.find((r) => r.id == roomID);
+		if (!roomExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no room with id ${roomID}`
+			});
+			return;
+		}
+
+		res.status(200).json(UpdateRoomLink(roomExists, buildingExists));
+	});
+
+	app.put("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
+		const body = req.body;
+		const buildingID = req.params.buildingID;
+		const roomID = req.params.roomID;
+
+		// SC 422
+		const errorMessage = RoomCreateError(body, buildingID);
+		if (!(typeof errorMessage === "boolean")) {
+			res.status(422).json(errorMessage);
+			return;
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		// SC 404
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+
+		// SC 204
+		const rooms = buildingExists.rooms;
+		const roomExists = rooms.find((r) => r.id == roomID);
+		if (roomExists) {
+			// Didnt do building because it shouldnt change
+			roomExists.number = body.number;
+			roomExists.type = body.type;
+			roomExists.furniture = body.furniture;
+			roomExists.href = body.href;
+			roomExists.seats = body.seats;
+			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			res.status(204).send();
+			return;
+		}
+
+		const makeRoom = {
+			id: roomID,
+			building: body.building,
+			number: body.number,
+			type: body.type,
+			furniture: body.furniture,
+			href: body.href,
+			seats: body.seats
+		}
+		rooms.push(makeRoom);
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(201).json(UpdateRoomLink(makeRoom, buildingExists))
+	});
+
+	app.delete("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+		const buildings = data.facilities;
+
+		const buildingID = req.params.buildingID;
+		const roomID = req.params.roomID;
+
+		// SC 404
+		const buildingExists = buildings.find((b) => b.id == buildingID);
+		if (!buildingExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no building with id ${buildingID}`
+			});
+			return;
+		}
+		const rooms = buildingExists.rooms;
+		const roomExists = rooms.find((r) => r.id == roomID);
+		if (!roomExists) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no room with id ${roomID}`
+			});
+			return;
+		}
+
+		const roomsAfterDelete = rooms.filter((r) => !(r.id == roomID));
+		buildingExists.rooms = roomsAfterDelete;
+		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		res.status(200).json(roomExists);
+	});
+
+
+
 
 	return app;
 }

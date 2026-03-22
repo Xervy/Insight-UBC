@@ -1,3 +1,8 @@
+export type Data = {
+	course_offerings: Course[];
+	facilities: Building[];
+}
+
 export type Course = {
 	id: string;
 	title: string;
@@ -16,6 +21,25 @@ export type Section = {
 	fail: number;
 	audit: number;
 	[k: string]: any;
+};
+
+export type Building = {
+	id: string;
+	name: string;
+	address: string;
+	lat: number;
+	lon: number;
+	rooms: Room[];
+};
+
+export type Room = {
+	id: string;
+	building: string;
+	number: string;
+	type: string;
+	furniture: string;
+	href: string;
+	seats: number;
 };
 
 export type Offering = {
@@ -68,3 +92,78 @@ export type UploadObject = {
 	Fail: number;
 	Audit: number;
 };
+
+export type SearchRequestBody = {
+	kind: string;
+	query: {
+		WHERE: Comparator;
+		OPTIONS: SearchRequestBodyOptions;
+	};
+};
+
+export type SearchRequestBodyOptions = {
+	COLUMNS: (MFieldOffering & SFieldOffering)[];
+	ORDER?: string;
+};
+
+// export type SearchColumnDataS = {
+// 	[key in SField]?: string;
+// }
+
+// export type SearchColumnDataM = {
+// 	[key in MField]?: number;
+// }
+
+// export type SearchColumnData = SearchColumnDataM & SearchColumnDataS;
+
+export type Comparator = LogicalComparator | MFieldComparatorOffering | SFieldComparatorOffering | MFieldComparatorFacility | SFieldComparatorFacility | NegationComparator;
+
+export type LogicalComparator = {
+	[key in "AND" | "OR"]?: Comparator[];
+};
+
+export type MFieldComparatorOffering = {
+	[key in "LT" | "GT" | "EQ"]?: {
+		[key in MFieldOffering]?: number;
+	};
+};
+
+export type SFieldComparatorOffering = {
+	[key in "IS"]?: {
+		[key in SFieldOffering]?: string;
+	};
+};
+
+export type MFieldComparatorFacility = {
+	[key in "LT" | "GT" | "EQ"]?: {
+		[key in MFieldFacility]?: number;
+	};
+};
+
+export type SFieldComparatorFacility = {
+	[key in "IS"]?: {
+		[key in SFieldFacility]?: string;
+	};
+};
+
+export type NegationComparator = {
+	[key in "NOT"]?: Comparator;
+};
+
+export const MFieldArrOffering = ["avg", "pass", "fail", "audit", "year"];
+export const SFieldArrOffering = ["title", "dept", "code", "instructor"];
+
+export const MFieldArrFacility = ["lat", "lon", "seats"];
+export const SFieldArrFacility = ["address", "building", "furniture", "href", "name", "number", "type"];
+
+export type MFieldOffering = (typeof MFieldArrOffering)[number];
+export type SFieldOffering = (typeof SFieldArrOffering)[number];
+
+export type MFieldFacility = (typeof MFieldArrFacility)[number];
+export type SFieldFacility = (typeof SFieldArrFacility)[number];
+
+export class SearchEBNFError extends Error {
+	constructor(msg: string) {
+		super(msg);
+	}
+}
