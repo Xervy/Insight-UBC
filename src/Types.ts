@@ -1,7 +1,7 @@
 export type Data = {
 	course_offerings: Course[];
 	facilities: Building[];
-}
+};
 
 export type Course = {
 	id: string;
@@ -79,7 +79,7 @@ export type UploadOfferingStats = {
 		sections_seen: number;
 		sections_added: number;
 		sections_modified: number;
-	}
+	};
 	message: string;
 };
 
@@ -92,9 +92,9 @@ export type UploadFacilityStats = {
 		buildings_modified: number;
 		rooms_added: number;
 		rooms_modified: number;
-	}
+	};
 	message: string;
-}
+};
 
 export type UploadObject = {
 	id: number;
@@ -115,7 +115,7 @@ export type SearchRequestBody = {
 	query: {
 		WHERE: Comparator;
 		OPTIONS: SearchRequestBodyOptions;
-		TRANSFORMATIONS?: SearchRequestBodyTransformations; 
+		TRANSFORMATIONS?: SearchRequestBodyTransformations;
 	};
 };
 
@@ -126,19 +126,19 @@ export type SearchRequestBodyOptions = {
 
 export type SearchRequestBodyOptionsOrder = {
 	dir: "UP" | "DOWN";
-	keys: string[]
-}
+	keys: string[];
+};
 
 export type SearchRequestBodyTransformations = {
 	GROUP: MathStringField[];
 	APPLY: ApplyRule[];
-}
+};
 
 export type ApplyRule = {
 	[key in string]: {
 		[key in ApplyToken]: MathStringField;
-	}
-}
+	};
+};
 
 export type ApplyToken = "MAX" | "MIN" | "AVG" | "COUNT" | "SUM";
 
@@ -152,7 +152,13 @@ export type ApplyToken = "MAX" | "MIN" | "AVG" | "COUNT" | "SUM";
 
 // export type SearchColumnData = SearchColumnDataM & SearchColumnDataS;
 
-export type Comparator = LogicalComparator | MFieldComparatorOffering | SFieldComparatorOffering | MFieldComparatorFacility | SFieldComparatorFacility | NegationComparator;
+export type Comparator =
+	| LogicalComparator
+	| MFieldComparatorOffering
+	| SFieldComparatorOffering
+	| MFieldComparatorFacility
+	| SFieldComparatorFacility
+	| NegationComparator;
 
 export type LogicalComparator = {
 	[key in "AND" | "OR"]?: Comparator[];

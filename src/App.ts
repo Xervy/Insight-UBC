@@ -4,7 +4,7 @@ import cors from "cors";
 
 import multer, { Field } from "multer";
 import JSZip from "jszip";
-import parse5 from 'parse5';
+import parse5 from "parse5";
 
 import {
 	Course,
@@ -98,10 +98,14 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	const DATA_FILE = datadir + "/data.json";
 
 	await fs.access(DATA_FILE).catch(async (_err) => {
-		await fs.writeFile(DATA_FILE, JSON.stringify({
-			course_offerings: [],
-			facilities: []
-		}), "utf-8");
+		await fs.writeFile(
+			DATA_FILE,
+			JSON.stringify({
+				course_offerings: [],
+				facilities: [],
+			}),
+			"utf-8"
+		);
 	});
 
 	const UPLOAD_FILE = "uploadFile.json";
@@ -128,15 +132,14 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const buildings = data.facilities;
 		const newData = {
 			course_offerings: courses,
-			facilities: buildings
-		}
+			facilities: buildings,
+		};
 		await fs.writeFile(
 			DATA_FILE,
 			JSON.stringify(newData, null, 2), // pretty format
 			"utf-8"
 		);
 	}
-
 
 	//Retrieve a list of courses
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
@@ -148,8 +151,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		};
 		let isError = false;
 
-		let limit = parseInt(req.query.limit as string ?? 100);
-		let offset = parseInt(req.query.offset as string ?? 0);
+		let limit = parseInt((req.query.limit as string) ?? 100);
+		let offset = parseInt((req.query.offset as string) ?? 0);
 
 		// SC 400
 		const errorRes = RetrieveAllQueryError(limit, offset);
@@ -283,8 +286,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		};
 		let isError = false;
 
-		let limit = parseInt(req.query.limit as string ?? 100);
-		let offset = parseInt(req.query.offset as string ?? 0);
+		let limit = parseInt((req.query.limit as string) ?? 100);
+		let offset = parseInt((req.query.offset as string) ?? 0);
 
 		// SC 400
 		const errorRes = RetrieveAllQueryError(limit, offset);
@@ -495,7 +498,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				sections_modified: 0,
 			},
 			message: "Processing in progress",
-
 		} as UploadOfferingStats;
 		bulkUploads.push(stats);
 
@@ -522,7 +524,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-
 		// CHECK FOR COURSES FOLDER
 		const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
 		if (!hasCoursesFolder) {
@@ -537,7 +538,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		);
 
 		let ft = 0; // files total
-		let fp = 0; // files processed 
+		let fp = 0; // files processed
 		let fs = 0; // files skipped
 		let cs = 0; // courses seen
 		let ca = 0; // courses added
@@ -699,10 +700,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			sections_seen: ss,
 			sections_added: sa,
 			sections_modified: sm,
-		}
+		};
 		stats.message = "Dataset processing complete";
 	});
-
 
 	/*
 	async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
@@ -992,9 +992,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 			if (order && typeof order === "string") {
 				filteredCourses.sort((a: any, b: any) => {
-					if (typeof a[order] == 'string') {
+					if (typeof a[order] == "string") {
 						return a[order].localeCompare(b[order]);
-					} else if (typeof a[order] == 'number') {
+					} else if (typeof a[order] == "number") {
 						return a[order] - b[order];
 					} else {
 						return -1;
@@ -1013,10 +1013,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const data = JSON.parse(file) as Data;
 		const buildings = data.facilities;
 
-		let limit = parseInt(req.query.limit as string ?? 100);
-		let offset = parseInt(req.query.offset as string ?? 0);
+		let limit = parseInt((req.query.limit as string) ?? 100);
+		let offset = parseInt((req.query.offset as string) ?? 0);
 
-		// SC 400 
+		// SC 400
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes == "boolean")) {
 			res.status(400).json(errorRes);
@@ -1032,7 +1032,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			total: buildings.length,
 			limit,
 			offset,
-			items: buildingsWithLinks
+			items: buildingsWithLinks,
 		});
 	});
 
@@ -1049,7 +1049,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!building) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id '${buildingID}'`
+				message: `no building with id '${buildingID}'`,
 			});
 			return;
 		}
@@ -1090,7 +1090,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			address: body.address,
 			lat: body.lat,
 			lon: body.lon,
-			rooms: []
+			rooms: [],
 		};
 		buildings.push(makeBuilding);
 		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
@@ -1108,7 +1108,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id '${buildingID}'`
+				message: `no building with id '${buildingID}'`,
 			});
 			return;
 		}
@@ -1118,13 +1118,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const { rooms, ...rest } = buildingExists;
 		res.status(200).json({
 			rooms: rooms.length,
-			...rest
+			...rest,
 		});
 	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
-		let limit = parseInt(req.query.limit as string ?? 100);
-		let offset = parseInt(req.query.offset as string ?? 0);
+		let limit = parseInt((req.query.limit as string) ?? 100);
+		let offset = parseInt((req.query.offset as string) ?? 0);
 
 		const errorRes = RetrieveAllQueryError(limit, offset);
 		if (!(typeof errorRes === "boolean")) {
@@ -1142,7 +1142,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id '${buildingID}'`
+				message: `no building with id '${buildingID}'`,
 			});
 			return;
 		}
@@ -1160,7 +1160,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			total: roomsToMatchLimit.length,
 			limit,
 			offset,
-			items: roomsWithLinks
+			items: roomsWithLinks,
 		});
 	});
 
@@ -1174,7 +1174,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id '${buildingID}'`
+				message: `no building with id '${buildingID}'`,
 			});
 			return;
 		}
@@ -1185,7 +1185,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!roomExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no room with id '${roomID}'`
+				message: `no room with id '${roomID}'`,
 			});
 			return;
 		}
@@ -1214,7 +1214,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id '${buildingID}'`
+				message: `no building with id '${buildingID}'`,
 			});
 			return;
 		}
@@ -1241,11 +1241,11 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			type: body.type,
 			furniture: body.furniture,
 			href: body.href,
-			seats: body.seats
-		}
+			seats: body.seats,
+		};
 		rooms.push(makeRoom);
 		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
-		res.status(201).json(UpdateRoomLink(makeRoom, buildingExists))
+		res.status(201).json(UpdateRoomLink(makeRoom, buildingExists));
 	});
 
 	app.delete("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
@@ -1261,7 +1261,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id '${buildingID}'`
+				message: `no building with id '${buildingID}'`,
 			});
 			return;
 		}
@@ -1270,7 +1270,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!roomExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no room with id '${roomID}'`
+				message: `no room with id '${roomID}'`,
 			});
 			return;
 		}
@@ -1312,7 +1312,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const id = generateSectionID();
 
 		if (req.body.kind == "course_offerings") {
-
 			const statObject = {
 				id: id.toString(),
 				status: "processing",
@@ -1329,7 +1328,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					sections_modified: 0,
 				},
 				message: "Processing in progress",
-
 			} as UploadOfferingStats;
 			bulkUploads.push(statObject);
 
@@ -1357,7 +1355,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				statObject.message = "Data is not in a valid zip format";
 				return;
 			}
-
 
 			// CHECK FOR COURSES FOLDER
 			const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
@@ -1516,7 +1513,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			// Write Json to file
 			await writeCoursesToData(OfferingsInData);
 			statObject.status = "completed";
-		} else { // kind == "facilites"
+		} else {
+			// kind == "facilites"
 
 			const statObject = {
 				id: id.toString(),
@@ -1526,9 +1524,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					buildings_added: 0,
 					buildings_modified: 0,
 					rooms_added: 0,
-					rooms_modified: 0
+					rooms_modified: 0,
 				},
-				message: "Processing in progress"
+				message: "Processing in progress",
 			} as UploadFacilityStats;
 			bulkUploads.push(statObject);
 
@@ -1569,7 +1567,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					value: string;
 				}[];
 				value?: string; // for #text
-			}
+			};
 
 			const htmlContent = await zip.files["index.htm"].async("string");
 			const halfBuiltBuildings = ParseBuildings(htmlContent, statObject);
@@ -1590,12 +1588,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							type: room.type,
 							furniture: room.furniture,
 							href: room.href,
-							seats: Number(room.seats)
+							seats: Number(room.seats),
 						});
 					}
 				}
 				const res = await fetch(`http://cs310.students.cs.ubc.ca:11316/api/v1/project_team037/${bld.address}`);
-				const { lat, lon } = await res.json() as any;
+				const { lat, lon } = (await res.json()) as any;
 				if (!lat || !lon) {
 					continue;
 				}
@@ -1605,7 +1603,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					address: bld.address,
 					lat: lat,
 					lon: lon,
-					rooms: rooms
+					rooms: rooms,
 				});
 			}
 
@@ -1616,7 +1614,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			for (const bld of fullBuiltBuildings) {
 				const foundBuilding = buildings.find((build) => build.id == bld.id);
 				if (foundBuilding) {
-
 					foundBuilding.id = bld.id;
 					foundBuilding.name = bld.name;
 					foundBuilding.address = bld.address;
@@ -1628,14 +1625,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					buildings.push(bld);
 					ba += 1;
 				}
-
 			}
 			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
 			statObject.status = "completed";
 			statObject.message = "Dataset processing complete";
 			statObject.stats.buildings_added = ba;
 		}
-
 	});
 
 	app.get("/api/v2/datasets/:dataset", async (req, res) => {
@@ -1651,7 +1646,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 		res.status(200).json(foundUpload);
-
 	});
 
 	app.post("/api/v2/search", async (req, res) => {
@@ -1682,7 +1676,17 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		if (columns.some((key) => !(MFieldArrOffering.includes(key) || SFieldArrOffering.includes(key) || MFieldArrFacility.includes(key) || SFieldArrFacility.includes(key)))) {
+		if (
+			columns.some(
+				(key) =>
+					!(
+						MFieldArrOffering.includes(key) ||
+						SFieldArrOffering.includes(key) ||
+						MFieldArrFacility.includes(key) ||
+						SFieldArrFacility.includes(key)
+					)
+			)
+		) {
 			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
 			return;
 		}
@@ -1781,9 +1785,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				if (order) {
 					if (typeof order == "string") {
 						filteredCourses.sort((a: any, b: any) => {
-							if (typeof a[order] == 'string') {
+							if (typeof a[order] == "string") {
 								return a[order].localeCompare(b[order]);
-							} else if (typeof a[order] == 'number') {
+							} else if (typeof a[order] == "number") {
 								return a[order] - b[order];
 							} else {
 								return -1;
@@ -1794,9 +1798,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							filteredCourses.sort((a: any, b: any) => {
 								for (const key of order.keys) {
 									let result = 0;
-									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+									if (typeof a[key] === "string" && typeof b[key] === "string") {
 										result = a[key].localeCompare(b[key]);
-									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+									} else if (typeof a[key] === "number" && typeof b[key] === "number") {
 										result = a[key] - b[key];
 									}
 									// No Tie breaker needed
@@ -1807,14 +1811,14 @@ export async function createApp(config: AppConfig): Promise<Application> {
 								// Everything is tied, keep same order
 								return 0;
 							});
-
-						} else { // order.dir == "DOWN" // Reversed Case
+						} else {
+							// order.dir == "DOWN" // Reversed Case
 							filteredCourses.sort((a: any, b: any) => {
 								for (const key of order.keys) {
 									let result = 0;
-									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+									if (typeof a[key] === "string" && typeof b[key] === "string") {
 										result = b[key].localeCompare(a[key]);
-									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+									} else if (typeof a[key] === "number" && typeof b[key] === "number") {
 										result = b[key] - a[key];
 									}
 									// No Tie breaker needed
@@ -1859,9 +1863,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				if (order) {
 					if (typeof order == "string") {
 						columnedBuildings.sort((a: any, b: any) => {
-							if (typeof a[order] == 'string') {
+							if (typeof a[order] == "string") {
 								return a[order].localeCompare(b[order]);
-							} else if (typeof a[order] == 'number') {
+							} else if (typeof a[order] == "number") {
 								return a[order] - b[order];
 							} else {
 								return -1;
@@ -1872,9 +1876,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							columnedBuildings.sort((a: any, b: any) => {
 								for (const key of order.keys) {
 									let result = 0;
-									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+									if (typeof a[key] === "string" && typeof b[key] === "string") {
 										result = a[key].localeCompare(b[key]);
-									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+									} else if (typeof a[key] === "number" && typeof b[key] === "number") {
 										result = a[key] - b[key];
 									}
 									// No Tie breaker needed
@@ -1885,14 +1889,14 @@ export async function createApp(config: AppConfig): Promise<Application> {
 								// Everything is tied, keep same order
 								return 0;
 							});
-
-						} else { // order.dir == "DOWN" // Reversed Case
+						} else {
+							// order.dir == "DOWN" // Reversed Case
 							columnedBuildings.sort((a: any, b: any) => {
 								for (const key of order.keys) {
 									let result = 0;
-									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+									if (typeof a[key] === "string" && typeof b[key] === "string") {
 										result = b[key].localeCompare(a[key]);
-									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+									} else if (typeof a[key] === "number" && typeof b[key] === "number") {
 										result = b[key] - a[key];
 									}
 									// No Tie breaker needed
@@ -1912,12 +1916,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				res.status(400).json(EBNFError((e as SearchEBNFError).message));
 			}
 		} else {
-			throw new Error("Why are you here? kind: offering/facility error")
+			throw new Error("Why are you here? kind: offering/facility error");
 		}
 	});
-
-
-
 
 	return app;
 }

@@ -1,5 +1,5 @@
 import { validateHeaderName } from "http";
-import parse5 from 'parse5';
+import parse5 from "parse5";
 import {
 	Building,
 	Comparator,
@@ -230,8 +230,8 @@ export function SearchOfferingsValidationError(body: any) {
 	if (!body) {
 		errorMes.fields = {
 			kind: "required but missing",
-			query: "required but missing"
-		}
+			query: "required but missing",
+		};
 		return errorMes;
 	}
 
@@ -265,15 +265,15 @@ export function SearchFacilitiesValidationError(body: any) {
 	if (!body) {
 		errorMes.fields = {
 			kind: "required but missing",
-			query: "required but missing"
-		}
+			query: "required but missing",
+		};
 		return errorMes;
 	}
 
 	if (body.kind == undefined) {
 		errorMes.fields["kind"] = "required but missing";
 		isError = true;
-	} else if (!((body.kind == "course_offerings") || (body.kind == "facilities"))) {
+	} else if (!(body.kind == "course_offerings" || body.kind == "facilities")) {
 		errorMes.fields["kind"] = "expected to be course_offerings or facilities";
 		isError = true;
 	}
@@ -394,7 +394,7 @@ function SearchMath(
 	const fieldOfInterest = allFields[0];
 	const valToCompare = cmp[fieldOfInterest]!; // Object.values(lt)[0];
 
-	if (typeof valToCompare != 'number') {
+	if (typeof valToCompare != "number") {
 		throw new SearchEBNFError(`${mathType} must be an object with one mfield of type number`);
 	}
 	for (const obj of dataAsColumns) {
@@ -574,7 +574,6 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SFieldOffering
 
 // Same but with transformations
 
-
 // Turns list of Buildings into just a list of objects with the fields specified in columns
 // and returns it (Doesnt change original list)
 export function FacilityFieldsForColumn(data: Building[], columns: (SFieldOffering & MFieldOffering)[]) {
@@ -609,7 +608,7 @@ export function FacilityFieldsForColumn(data: Building[], columns: (SFieldOfferi
 }
 
 // Takes a list of buildings and returns the list of buildings without
-// the parameter "rooms", instead it has a "links" parameter to itself and rooms 
+// the parameter "rooms", instead it has a "links" parameter to itself and rooms
 export function UpdateListOfBuildingsLinks(buildings: Building[]) {
 	// return buildings.map((building) => {
 	// 	UpdateBuildingLink(building);
@@ -636,8 +635,8 @@ export function UpdateBuildingLink(building: Building) {
 		lon: building.lon,
 		links: {
 			self: self,
-			rooms: rooms
-		}
+			rooms: rooms,
+		},
 	};
 }
 
@@ -663,8 +662,8 @@ export function UpdateRoomLink(room: Room, bld: Building) {
 		seats: room.seats,
 		links: {
 			self: self,
-			building: buildingLink
-		}
+			building: buildingLink,
+		},
 	};
 }
 
@@ -704,7 +703,7 @@ export function BuildingCreateError(body: any) {
 	const errorMessage = {
 		error: "Validation failed",
 		fields: {} as any,
-	}
+	};
 	let isError = false;
 
 	if (body.name == undefined) {
@@ -749,7 +748,7 @@ export function RoomCreateError(body: any, buildingID: string) {
 	const errorMessage = {
 		error: "Validation failed",
 		fields: {} as any,
-	}
+	};
 	let isError = false;
 
 	if (body.building == undefined) {
@@ -809,7 +808,6 @@ export function RoomCreateError(body: any, buildingID: string) {
 	return isError;
 }
 
-
 type FieldsWeCanAccess = {
 	nodeName: string;
 	childNodes?: FieldsWeCanAccess[];
@@ -818,11 +816,12 @@ type FieldsWeCanAccess = {
 		value: string;
 	}[];
 	value?: string; // for #text
-}
+};
 
 // Returns undefined if table if not found
 // Returns table if table with class = views-table is found
-function LocateTable(node: FieldsWeCanAccess): FieldsWeCanAccess | undefined { // Node is a child node
+function LocateTable(node: FieldsWeCanAccess): FieldsWeCanAccess | undefined {
+	// Node is a child node
 	return LocateWithClass(node, "views-table");
 }
 
@@ -844,7 +843,10 @@ function LocateWithClass(node: FieldsWeCanAccess | undefined, className: string)
 	return undefined;
 }
 
-function LocateFirstWithName(node: FieldsWeCanAccess | undefined, nodeName: "#text" | "a" | "tbody" | "tr" | "td"): FieldsWeCanAccess | undefined {
+function LocateFirstWithName(
+	node: FieldsWeCanAccess | undefined,
+	nodeName: "#text" | "a" | "tbody" | "tr" | "td"
+): FieldsWeCanAccess | undefined {
 	if (node === undefined) return undefined;
 
 	if (node.nodeName == nodeName) {
@@ -863,7 +865,7 @@ function LocateFirstWithName(node: FieldsWeCanAccess | undefined, nodeName: "#te
 }
 
 export function ParseBuildings(htmlContent: string, statObject: UploadFacilityStats) {
-	let document
+	let document;
 	try {
 		document = parse5.parse(htmlContent);
 	} catch (e) {
@@ -891,7 +893,6 @@ export function ParseBuildings(htmlContent: string, statObject: UploadFacilitySt
 		return;
 	}
 
-	
 	const tableRows = tbody.childNodes;
 	if (!tableRows) {
 		statObject.status = "completed";
@@ -924,23 +925,22 @@ export function ParseBuildings(htmlContent: string, statObject: UploadFacilitySt
 			fullname,
 			shortName,
 			address,
-			link
+			link,
 		});
 	}
 
 	return buildings;
 }
 
-
 export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats) {
-	let document
+	let document;
 	try {
 		document = parse5.parse(htmlContent);
 	} catch (e) {
 		// statObject.status = "failed";
 		// statObject.message = "index.htm could not be parsed";
 		return;
-	}// Probably dont need these?
+	} // Probably dont need these?
 
 	let table;
 	for (const child of document.childNodes) {
@@ -948,13 +948,13 @@ export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats)
 		if (table) {
 			break;
 		}
-	} 
+	}
 
 	if (!table) {
 		// statObject.status = "failed";
 		// statObject.message = "No building table found in index.htm";
 		return;
-	}// Probably dont need these?
+	} // Probably dont need these?
 
 	const tbody = LocateFirstWithName(table, "tbody");
 	if (!tbody) {
@@ -963,7 +963,6 @@ export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats)
 		return;
 	}
 
-	
 	const tableRows = tbody.childNodes;
 	if (!tableRows) {
 		// statObject.status = "completed";
@@ -990,9 +989,9 @@ export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats)
 
 		const hrefAParent = LocateWithClass(row, "views-field-nothing");
 		const hrefParent = LocateFirstWithName(hrefAParent, "a");
-		const href = hrefParent?.attrs?.find((attr) => attr.name == "href")?.value?.trim();		
+		const href = hrefParent?.attrs?.find((attr) => attr.name == "href")?.value?.trim();
 
-		if (!number || !seats || !furniture || !type || ! href) {
+		if (!number || !seats || !furniture || !type || !href) {
 			continue;
 		}
 
@@ -1001,7 +1000,7 @@ export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats)
 			seats,
 			furniture,
 			type,
-			href
+			href,
 		});
 	}
 

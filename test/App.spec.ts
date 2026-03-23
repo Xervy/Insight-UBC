@@ -1686,8 +1686,6 @@ describe("REST API v1", function () {
 	// 		audit: 0,
 	// 	}));
 
-
-
 	// 	const res = await request(app)
 	// 		.post("/api/v1/search")
 	// 		.send({
@@ -2741,15 +2739,15 @@ describe("REST API v1", function () {
 				status: "processing",
 				kind: "course_offerings",
 				stats: {
-					"courses_added": 0,
-					"courses_modified": 0,
-					"courses_seen": 0,
-					"files_processed": 0,
-					"files_skipped": 0,
-					"files_total": 0,
-					"sections_added": 0,
-					"sections_modified": 0,
-					"sections_seen": 0
+					courses_added: 0,
+					courses_modified: 0,
+					courses_seen: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					files_total: 0,
+					sections_added: 0,
+					sections_modified: 0,
+					sections_seen: 0,
 				},
 				message: "Processing in progress",
 			});
@@ -2762,15 +2760,15 @@ describe("REST API v1", function () {
 			status: "failed",
 			kind: "course_offerings",
 			stats: {
-				"courses_added": 0,
-				"courses_modified": 0,
-				"courses_seen": 0,
-				"files_processed": 0,
-				"files_skipped": 0,
-				"files_total": 0,
-				"sections_added": 0,
-				"sections_modified": 0,
-				"sections_seen": 0
+				courses_added: 0,
+				courses_modified: 0,
+				courses_seen: 0,
+				files_processed: 0,
+				files_skipped: 0,
+				files_total: 0,
+				sections_added: 0,
+				sections_modified: 0,
+				sections_seen: 0,
 			},
 			message: "Missing root courses directory",
 		});
@@ -2884,8 +2882,6 @@ describe("REST API v1", function () {
 			message: "Dataset processing complete",
 		});
 	});
-
-
 
 	it("GET /api/v1/datasets/[uploadID] - Expected: 202 - 3 Files", async () => {
 		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/3_files.zip"));
@@ -3080,7 +3076,7 @@ describe("REST API v1", function () {
 		expect(yippeee).to.have.property("status", OK);
 		expect(yippeee.body.stats).to.have.property("buildings_added", 74);
 
-				const res = await request(app)
+		const res = await request(app)
 			.post("/api/v2/search")
 			.send({
 				kind: "facilities",
@@ -3115,8 +3111,8 @@ describe("REST API v1", function () {
 				},
 			});
 
-			expect(res).to.have.property("status", OK);
-			expect(res).to.have.deep.property("body", {});
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {});
 	});
 
 	it("POST /api/v1/search - Expected: 422 - Invalid kind field", async () => {
@@ -3339,9 +3335,5 @@ describe("REST API v1", function () {
 		}
 	});
 
-	it("SEARCH", async () => {
-
-	});
-
-
+	it("SEARCH", async () => {});
 });
