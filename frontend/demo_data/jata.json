@@ -100,8 +100,8 @@
                     "id": "ESB_1013",
                     "building": "ESB",
                     "number": "1013",
-                    "type": "Lecture Hall",
-                    "furniture": "Fixed Tablets",
+                    "type": "Tiered Large Group",
+                    "furniture": "Classroom-Fixed Tablets",
                     "href": "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/ESB-1013",
                     "seats": 350
                 },
@@ -109,8 +109,8 @@
                     "id": "ESB_2012",
                     "building": "ESB",
                     "number": "2012",
-                    "type": "Classroom",
-                    "furniture": "Fixed Tables",
+                    "type": "Tiered Large Group",
+                    "furniture": "Classroom-Fixed Tables/Movable Chairs",
                     "href": "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/ESB-2012",
                     "seats": 80
                 }

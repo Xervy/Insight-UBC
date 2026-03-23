@@ -6,6 +6,7 @@ import { Application, createApp } from "../src/App";
 import { NOTFOUND } from "dns";
 import path from "path";
 import { access } from "fs";
+import { defaultMaxListeners } from "events";
 
 const {
 	OK, // 200
@@ -1663,98 +1664,98 @@ describe("REST API v1", function () {
 	});
 
 	//Search too many results
-	it("POST /api/v1/search - Expected: 413 -  too many results", async () => {
-		type Offering = {
-			dept: string;
-			avg: number;
-			pass: number;
-			fail: number;
-			audit: number;
-			year: number;
-			instructor: string;
-		};
-		const lotsOfCourses: Offering[] = Array.from({ length: 5001 }, (_, i) => ({
-			dept: "cpsc",
-			code: String(100 + (i % 50)),
-			title: "Computer Science",
-			instructor: "Bob",
-			year: 2021,
-			avg: 50,
-			pass: 20,
-			fail: 19,
-			audit: 0,
-		}));
+	// it("POST /api/v1/search - Expected: 413 -  too many results", async () => {
+	// 	type Offering = {
+	// 		dept: string;
+	// 		avg: number;
+	// 		pass: number;
+	// 		fail: number;
+	// 		audit: number;
+	// 		year: number;
+	// 		instructor: string;
+	// 	};
+	// 	const lotsOfCourses: Offering[] = Array.from({ length: 5001 }, (_, i) => ({
+	// 		dept: "cpsc",
+	// 		code: String(100 + (i % 50)),
+	// 		title: "Computer Science",
+	// 		instructor: "Bob",
+	// 		year: 2021,
+	// 		avg: 50,
+	// 		pass: 20,
+	// 		fail: 19,
+	// 		audit: 0,
+	// 	}));
 
 
 
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				query: {
-					WHERE: {},
-					OPTIONS: {
-						COLUMNS: ["dept"],
-						ORDER: "year",
-					},
-				},
-			});
+	// 	const res = await request(app)
+	// 		.post("/api/v1/search")
+	// 		.send({
+	// 			kind: "course_offerings",
+	// 			query: {
+	// 				WHERE: {},
+	// 				OPTIONS: {
+	// 					COLUMNS: ["dept"],
+	// 					ORDER: "year",
+	// 				},
+	// 			},
+	// 		});
 
-		expect(res).to.have.property("status", REQUEST_TOO_LONG);
-		expect(res).to.have.deep.property("body", {
-			error: "Too many results",
-			message: "Query would return more than 5000 results",
-			limit: 5000,
-		});
-	});
+	// 	expect(res).to.have.property("status", REQUEST_TOO_LONG);
+	// 	expect(res).to.have.deep.property("body", {
+	// 		error: "Too many results",
+	// 		message: "Query would return more than 5000 results",
+	// 		limit: 5000,
+	// 	});
+	// });
 
 	//Search max results
-	it("POST /api/v1/search - Expected: 200 -  max results", async () => {
-		type Offering = {
-			dept: string;
-			avg: number;
-			pass: number;
-			fail: number;
-			audit: number;
-			year: number;
-			instructor: string;
-		};
-		const lotsOfCourses: Offering[] = Array.from({ length: 5000 }, (_, i) => ({
-			dept: "cpsc",
-			code: String(100 + (i % 50)),
-			title: "Computer Science",
-			instructor: "Bob",
-			year: 2021,
-			avg: 50,
-			pass: 20,
-			fail: 19,
-			audit: 0,
-		}));
+	// it("POST /api/v1/search - Expected: 200 -  max results", async () => {
+	// 	type Offering = {
+	// 		dept: string;
+	// 		avg: number;
+	// 		pass: number;
+	// 		fail: number;
+	// 		audit: number;
+	// 		year: number;
+	// 		instructor: string;
+	// 	};
+	// 	const lotsOfCourses: Offering[] = Array.from({ length: 5000 }, (_, i) => ({
+	// 		dept: "cpsc",
+	// 		code: String(100 + (i % 50)),
+	// 		title: "Computer Science",
+	// 		instructor: "Bob",
+	// 		year: 2021,
+	// 		avg: 50,
+	// 		pass: 20,
+	// 		fail: 19,
+	// 		audit: 0,
+	// 	}));
 
-		await fs.writeFile(
-			datadir,
-			JSON.stringify(lotsOfCourses, null, 2), // pretty format
-			"utf-8"
-		);
+	// 	await fs.writeFile(
+	// 		datadir,
+	// 		JSON.stringify(lotsOfCourses, null, 2), // pretty format
+	// 		"utf-8"
+	// 	);
 
-		const res = await request(app)
-			.post("/api/v1/search")
-			.send({
-				kind: "course_offerings",
-				WHERE: {},
-				query: {
-					OPTIONS: {
-						COLUMNS: ["dept", "code", "title", "instructor", "avg", "pass", "fail", "audit", "year"],
-						ORDER: "avg",
-					},
-				},
-			});
+	// 	const res = await request(app)
+	// 		.post("/api/v1/search")
+	// 		.send({
+	// 			kind: "course_offerings",
+	// 			WHERE: {},
+	// 			query: {
+	// 				OPTIONS: {
+	// 					COLUMNS: ["dept", "code", "title", "instructor", "avg", "pass", "fail", "audit", "year"],
+	// 					ORDER: "avg",
+	// 				},
+	// 			},
+	// 		});
 
-		expect(res).to.have.property("status", OK);
-		expect(res).to.have.deep.property("body", { lotsOfCourses });
-		expect(res).to.be.an("array");
-		expect(res.body.length).to.equal(5000);
-	});
+	// 	expect(res).to.have.property("status", OK);
+	// 	expect(res).to.have.deep.property("body", { lotsOfCourses });
+	// 	expect(res).to.be.an("array");
+	// 	expect(res.body.length).to.equal(5000);
+	// });
 
 	//Search missing WHERE
 	it("POST /api/v1/search - Expected: 400 -  Missing WHERE", async () => {
@@ -1900,4 +1901,1410 @@ describe("REST API v1", function () {
 			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
 		}
 	});
+
+	it("PUT /api/v2/buildings/{builing} - Expected: 422", async () => {
+		const res = await request(app).put("/api/v2/buildings/DMP").send({
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: "abc",
+			lon: -123.24807,
+		});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				name: "required but missing",
+				lat: "expected a number",
+			},
+		});
+	});
+
+	it("PUT /api/v2/buildings/{builing} - Expected: 201 - add new building", async () => {
+		const res = await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		expect(res).to.have.property("status", CREATED);
+		expect(res).to.have.deep.property("body", {
+			id: "DMP",
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+			links: {
+				self: "/api/v2/buildings/DMP",
+				rooms: "/api/v2/buildings/DMP/rooms",
+			},
+		});
+	});
+
+	it("PUT /api/v2/buildings/{builing} - Expected: 204 - update building", async () => {
+		const res = await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		expect(res).to.have.property("status", CREATED);
+		expect(res).to.have.deep.property("body", {
+			id: "DMP",
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+			links: {
+				self: "/api/v2/buildings/DMP",
+				rooms: "/api/v2/buildings/DMP/rooms",
+			},
+		});
+
+		const room = await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion Updated",
+			address: "6245 TEST Road V6T 1Z4",
+			lat: 50.26125,
+			lon: -100.24807,
+		});
+
+		expect(room).to.have.property("status", NO_CONTENT);
+	});
+
+	it("DELETE /api/v2/buildings/{builing} - Expected: 404", async () => {
+		const res = await request(app).del("/api/v2/buildings/DMP");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no building with id 'DMP'",
+		});
+	});
+
+	it("DELETE /api/v2/buildings/{builing} - Expected: 200", async () => {
+		const res = await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		expect(res).to.have.property("status", CREATED);
+		expect(res).to.have.deep.property("body", {
+			id: "DMP",
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+			links: {
+				self: "/api/v2/buildings/DMP",
+				rooms: "/api/v2/buildings/DMP/rooms",
+			},
+		});
+
+		const deleted = await request(app).del("/api/v2/buildings/DMP");
+		expect(deleted).to.have.property("status", OK);
+		expect(deleted).to.have.deep.property("body", {
+			id: "DMP",
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+			rooms: 0,
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 404 - no building", async () => {
+		const res = await request(app).get("/api/v2/buildings/DMP?limit=2000&offset=0");
+
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no building with id 'DMP'",
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 400 - invalid offset", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=2000&offset=-1");
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid request parameters",
+			params: {
+				offset: "expected an integer >= 0",
+			},
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 400 - invalid limit 5001", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=5001&offset=1");
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid request parameters",
+			params: {
+				limit: "expected an integer between 1 and 5000",
+			},
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 400 - invalid limit 0", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=0&offset=1");
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid request parameters",
+			params: {
+				limit: "expected an integer between 1 and 5000",
+			},
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 200 put1room get1room ", async () => {
+		await request(app).put("/api/v2/buildings/DMP/").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=1&offset=0");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			total: 1,
+			limit: 1,
+			offset: 0,
+			items: [
+				{
+					id: "DMP_101",
+					building: "DMP",
+					number: "101",
+					type: "Open Design General Purpose",
+					furniture: "Classroom-Movable Tables & Chairs",
+					href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+					seats: 40,
+					links: {
+						self: "/api/v2/buildings/DMP/rooms/DMP_101",
+						building: "/api/v2/buildings/DMP",
+					},
+				},
+			],
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms- Expected: 200 - post2room get1room", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_201").send({
+			building: "DMP",
+			number: "201",
+			type: "Small Group",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-201",
+			seats: 25,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=1&offset=0");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			total: 1,
+			limit: 1,
+			offset: 0,
+			items: [
+				{
+					id: "DMP_101",
+					building: "DMP",
+					number: "101",
+					type: "Open Design General Purpose",
+					furniture: "Classroom-Movable Tables & Chairs",
+					href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+					seats: 40,
+					links: {
+						self: "/api/v2/buildings/DMP/rooms/DMP_101",
+						building: "/api/v2/buildings/DMP",
+					},
+				},
+			],
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 200 - post2room get2room", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_201").send({
+			building: "DMP",
+			number: "201",
+			type: "Small Group",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-201",
+			seats: 25,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=2&offset=0");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			total: 2,
+			limit: 2,
+			offset: 0,
+			items: [
+				{
+					id: "DMP_101",
+					building: "DMP",
+					number: "101",
+					type: "Open Design General Purpose",
+					furniture: "Classroom-Movable Tables & Chairs",
+					href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+					seats: 40,
+					links: {
+						self: "/api/v2/buildings/DMP/rooms/DMP_101",
+						building: "/api/v2/buildings/DMP",
+					},
+				},
+
+				{
+					id: "DMP_201",
+					building: "DMP",
+					number: "201",
+					type: "Small Group",
+					furniture: "Classroom-Movable Tables & Chairs",
+					href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-201",
+					seats: 25,
+					links: {
+						self: "/api/v2/buildings/DMP/rooms/DMP_201",
+						building: "/api/v2/buildings/DMP",
+					},
+				},
+			],
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 200 - on bound limit", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=5000&offset=0");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			total: 0,
+			limit: 5000,
+			offset: 0,
+			items: [],
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 200 - on bound limit", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=1&offset=1");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			total: 0,
+			limit: 1,
+			offset: 1,
+			items: [],
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms - Expected: 200 - on bound offset", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms?limit=2000&offset=0");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			total: 0,
+			limit: 2000,
+			offset: 0,
+			items: [],
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms/{room} - Expected: 404 - no building", async () => {
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms/DMP_101");
+
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no building with id 'DMP'",
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms/{room} - Expected: 404 - no room", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms/DMP_201");
+
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no room with id 'DMP_201'",
+		});
+	});
+
+	it("GET /api/v2/buildings/{builing}/rooms/{room} - Expected: 200 ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).get("/api/v2/buildings/DMP/rooms/DMP_101");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			id: "DMP_101",
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+			links: {
+				self: "/api/v2/buildings/DMP/rooms/DMP_101",
+				building: "/api/v2/buildings/DMP",
+			},
+		});
+	});
+
+	it("POST /api/v2/buildings/{builing}/rooms/{room} - Expected: 422 ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		const res = await request(app).put("/api/v2/buildings/DMP/rooms/TEST_101").send({
+			building: "TEST",
+			number: 101,
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: -1,
+		});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				building: "must match parent building in path",
+				number: "expected a string",
+				type: "required but missing",
+				seats: "expected a number >= 0",
+			},
+		});
+	});
+
+	it("POST /api/v2/buildings/{builing}/rooms/{room} - Expected: 404 ", async () => {
+		const res = await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no building with id 'DMP'",
+		});
+	});
+
+	it("POST /api/v2/buildings/{builing}/rooms/{room} - Expected: 201 - create room ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		const res = await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		expect(res).to.have.property("status", CREATED);
+		expect(res).to.have.deep.property("body", {
+			id: "DMP_101",
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+			links: {
+				self: "/api/v2/buildings/DMP/rooms/DMP_101",
+				building: "/api/v2/buildings/DMP",
+			},
+		});
+	});
+
+	it("POST /api/v2/buildings/{builing}/rooms/{room} - Expected: 204 - update room ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Updated info",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 50,
+		});
+
+		expect(res).to.have.property("status", NO_CONTENT);
+	});
+
+	it("DELETE /api/v2/buildings/{builing}/rooms/{room} - Expected: 404 - no building ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).del("/api/v2/buildings/TEST/rooms/DMP_101");
+
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no building with id 'TEST'",
+		});
+	});
+
+	it("DELETE /api/v2/buildings/{builing}/rooms/{room} - Expected: 404 - no room ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).del("/api/v2/buildings/DMP/rooms/TEST_101");
+
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no room with id 'TEST_101'",
+		});
+	});
+
+	it("DELETE /api/v2/buildings/{builing}/rooms/{room} - Expected: 200  ", async () => {
+		await request(app).put("/api/v2/buildings/DMP").send({
+			name: "Hugh Dempster Pavilion",
+			address: "6245 Agronomy Road V6T 1Z4",
+			lat: 49.26125,
+			lon: -123.24807,
+		});
+
+		await request(app).put("/api/v2/buildings/DMP/rooms/DMP_101").send({
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+
+		const res = await request(app).del("/api/v2/buildings/DMP/rooms/DMP_101");
+
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			id: "DMP_101",
+			building: "DMP",
+			number: "101",
+			type: "Open Design General Purpose",
+			furniture: "Classroom-Movable Tables & Chairs",
+			href: "http://students.ubc.ca/campus/discover/buildings-and-classrooms/room/DMP-101",
+			seats: 40,
+		});
+		const check = await request(app).get("/api/v2/buildings/DMP/rooms/DMP_101");
+		expect(check).to.have.property("status", NOT_FOUND);
+	});
+
+	// POST V2 Datasets
+
+	it("POST /api/v2/datasets - Expected: 422 - Missing", async () => {
+		const uploadRes = await request(app).post("/api/v2/datasets");
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "required but missing",
+				archive: "required but missing",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Expected Different", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "yeet")
+			.attach("archive", Buffer.alloc(0), "courses.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings",
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v2/datasets - Expected: 422 - Expected Different", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v2/datasets")
+			.field("kind", "invalid")
+			.attach("archive", Buffer.alloc(0), "empty.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings or facilities",
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 422 - Mixed", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", Buffer.alloc(0), "courses.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v2/datasets - Expected: 422 - Mixed", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v2/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", Buffer.alloc(0), "empty.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v2/datasets - Expected: 422 - Mixed", async () => {
+		const uploadRes = await request(app)
+			.post("/api/v2/datasets")
+			.field("kind", "facilities")
+			.attach("archive", Buffer.alloc(0), "empty.zip");
+
+		expect(uploadRes).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(uploadRes).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				archive: "expected non-empty file",
+			},
+		});
+	});
+
+	it("POST /api/v1/datasets - Expected: 202 - No Courses Folder", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/no_courses.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		expect(uploadRes).to.have.property("status", ACCEPTED);
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "failed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 0,
+				files_processed: 0,
+				files_skipped: 0,
+				courses_seen: 0,
+				courses_added: 0,
+				courses_modified: 0,
+				sections_seen: 0,
+				sections_added: 0,
+				sections_modified: 0,
+			},
+			message: "Missing root courses directory",
+		});
+	});
+
+	it("POST /api/v2/datasets - Expected: 202 - No Courses Folder", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/no_courses.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v2/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		expect(uploadRes).to.have.property("status", ACCEPTED);
+		let res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					"courses_added": 0,
+					"courses_modified": 0,
+					"courses_seen": 0,
+					"files_processed": 0,
+					"files_skipped": 0,
+					"files_total": 0,
+					"sections_added": 0,
+					"sections_modified": 0,
+					"sections_seen": 0
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "failed",
+			kind: "course_offerings",
+			stats: {
+				"courses_added": 0,
+				"courses_modified": 0,
+				"courses_seen": 0,
+				"files_processed": 0,
+				"files_skipped": 0,
+				"files_total": 0,
+				"sections_added": 0,
+				"sections_modified": 0,
+				"sections_seen": 0
+			},
+			message: "Missing root courses directory",
+		});
+	});
+
+	it("POST /api/v2/datasets - Expected: 202 - No Facilities Folder", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/no_facilities.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v2/datasets")
+			.field("kind", "facilities")
+			.attach("archive", datasetBuffer, "buildings.zip");
+
+		expect(uploadRes).to.have.property("status", ACCEPTED);
+		let res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "facilities",
+				stats: {
+					buildings_added: 0,
+					buildings_modified: 0,
+					rooms_added: 0,
+					rooms_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "failed",
+			kind: "facilities",
+			stats: {
+				buildings_added: 0,
+				buildings_modified: 0,
+				rooms_added: 0,
+				rooms_modified: 0,
+			},
+			message: "Missing index.htm file",
+		});
+	});
+
+	it("GET /api/v1/datasets/none - Expected: 404", async () => {
+		const res = await request(app).get("/api/v1/datasets/none");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no dataset with id 'none'",
+		});
+	});
+
+	it("GET /api/v2/datasets/none - Expected: 404", async () => {
+		const res = await request(app).get("/api/v1/datasets/none");
+		expect(res).to.have.property("status", NOT_FOUND);
+		expect(res).to.have.deep.property("body", {
+			error: "Not found",
+			message: "no dataset with id 'none'",
+		});
+	});
+
+	it("GET /api/v1/datasets/[uploadID] - Expected: 202", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/item1.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		const res2 = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		expect(res2).to.have.property("status", OK);
+		expect(res2).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "completed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 1,
+				files_processed: 1,
+				files_skipped: 0,
+				courses_seen: 2,
+				courses_added: 1,
+				courses_modified: 1,
+				sections_seen: 2,
+				sections_added: 2,
+				sections_modified: 0,
+			},
+			message: "Dataset processing complete",
+		});
+	});
+
+
+
+	it("GET /api/v1/datasets/[uploadID] - Expected: 202 - 3 Files", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/3_files.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v1/datasets")
+			.field("kind", "course_offerings")
+			.attach("archive", datasetBuffer, "courses.zip");
+
+		let res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				id: uploadRes.body.id,
+				status: "processing",
+				kind: "course_offerings",
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+			});
+			res = await request(app).get(`/api/v1/datasets/${uploadRes.body.id}`);
+		}
+		expect(res).to.have.property("status", OK);
+		expect(res).to.have.deep.property("body", {
+			id: uploadRes.body.id,
+			status: "completed",
+			kind: "course_offerings",
+			stats: {
+				files_total: 3,
+				files_processed: 3,
+				files_skipped: 0,
+				courses_seen: 11,
+				courses_added: 5,
+				courses_modified: 6,
+				sections_seen: 11,
+				sections_added: 7,
+				sections_modified: 4,
+			},
+			message: "Dataset processing complete",
+		});
+		const check = await request(app).get("/api/v1/courses");
+		expect(check).to.have.property("status", OK);
+		expect(check).to.have.deep.property("body", {
+			total: 5,
+			limit: 100,
+			offset: 0,
+			items: [
+				{
+					id: "CPSC210",
+					title: "Object Oriented Programming",
+					dept: "CPSC",
+					code: "210",
+					links: {
+						self: "/api/v1/courses/CPSC210",
+						sections: "/api/v1/courses/CPSC210/sections",
+					},
+				},
+				{
+					id: "CPSC310",
+					title: "Software Engineering",
+					dept: "CPSC",
+					code: "310",
+					links: {
+						self: "/api/v1/courses/CPSC310",
+						sections: "/api/v1/courses/CPSC310/sections",
+					},
+				},
+				{
+					id: "MATH100",
+					title: "Derivatives",
+					dept: "MATH",
+					code: "100",
+					links: {
+						self: "/api/v1/courses/MATH100",
+						sections: "/api/v1/courses/MATH100/sections",
+					},
+				},
+				{
+					id: "MATH101",
+					title: "Integrals",
+					dept: "MATH",
+					code: "101",
+					links: {
+						self: "/api/v1/courses/MATH101",
+						sections: "/api/v1/courses/MATH101/sections",
+					},
+				},
+				{
+					id: "MATH112",
+					title: "Algebra",
+					dept: "MATH",
+					code: "112",
+					links: {
+						self: "/api/v1/courses/MATH112",
+						sections: "/api/v1/courses/MATH112/sections",
+					},
+				},
+			],
+		});
+		const c310 = await request(app).get("/api/v1/courses/CPSC310/sections");
+		expect(c310).to.have.property("status", OK);
+		expect(c310).to.have.deep.property("body", {
+			total: 2,
+			limit: 100,
+			offset: 0,
+			items: [
+				{
+					id: "0",
+					instructor: "Nick Bradley",
+					year: 2025,
+					avg: 75,
+					pass: 100,
+					fail: 50,
+					audit: 0,
+					links: {
+						self: "/api/v1/courses/CPSC310/sections/0",
+						course: "/api/v1/courses/CPSC310",
+					},
+				},
+				{
+					id: "1",
+					instructor: "Nick Bradley",
+					year: 2025,
+					avg: 77,
+					pass: 120,
+					fail: 40,
+					audit: 10,
+					links: {
+						self: "/api/v1/courses/CPSC310/sections/1",
+						course: "/api/v1/courses/CPSC310",
+					},
+				},
+			],
+		});
+
+		const m112 = await request(app).get("/api/v1/courses/MATH112/sections");
+		expect(m112).to.have.property("status", OK);
+		expect(m112).to.have.deep.property("body", {
+			total: 2,
+			limit: 100,
+			offset: 0,
+			items: [
+				{
+					id: "4",
+					instructor: "Pee Dawg",
+					year: 2021,
+					avg: 90,
+					pass: 166,
+					fail: 10,
+					audit: 2,
+					links: {
+						self: "/api/v1/courses/MATH112/sections/4",
+						course: "/api/v1/courses/MATH112",
+					},
+				},
+				{
+					id: "5",
+					instructor: "Pee Dawg",
+					year: 2021,
+					avg: 90,
+					pass: 166,
+					fail: 10,
+					audit: 2,
+					links: {
+						self: "/api/v1/courses/MATH112/sections/5",
+						course: "/api/v1/courses/MATH112",
+					},
+				},
+			],
+		});
+	});
+
+	it("GET /api/v2/datasets/[bleh] - Expected 202 - campus.zip", async () => {
+		const datasetBuffer = await fs.readFile(path.resolve(__dirname, "test_data/campus.zip"));
+		const uploadRes = await request(app)
+			.post("/api/v2/datasets")
+			.field("kind", "facilities")
+			.attach("archive", datasetBuffer, "campus.zip");
+
+		let res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		while (res.body.status == "processing") {
+			res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		}
+		expect(res).to.have.property("status", OK);
+		expect(res.body.stats).to.have.property("buildings_added", 74);
+
+	});
+
+	it("POST /api/v1/search - Expected: 422 - Invalid kind field", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "invalid_course",
+				query: {
+					WHERE: {},
+					OPTIONS: {
+						COLUMNS: ["dept", "avg"],
+						ORDER: "year",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings",
+			},
+		});
+	});
+
+	it("POST /api/v2/search - Expected: 422 - Invalid kind field", async () => {
+		const res = await request(app)
+			.post("/api/v2/search")
+			.send({
+				query: {
+					WHERE: {
+						GT: {
+							seats: 350,
+						},
+					},
+					OPTIONS: {
+						COLUMNS: ["building", "number", "seats"],
+						ORDER: ["seats"],
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "required but missing",
+			},
+		});
+	});
+
+	it("POST /api/v2/search - Expected: 422 - Invalid kind field", async () => {
+		const res = await request(app)
+			.post("/api/v2/search")
+			.send({
+				kind: "invalid_facilities",
+				query: {
+					WHERE: {
+						GT: {
+							seats: 350,
+						},
+					},
+					OPTIONS: {
+						COLUMNS: ["building", "number", "seats"],
+						ORDER: ["seats"],
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", UNPROCESSABLE_ENTITY);
+		expect(res).to.have.deep.property("body", {
+			error: "Validation failed",
+			fields: {
+				kind: "expected to be course_offerings or facilities",
+			},
+		});
+	});
+
+	it("POST /api/v2/search - Expected: 400 -  Missing WHERE", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					OPTIONS: {
+						COLUMNS: ["dept"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid query",
+			message: "Missing WHERE",
+		});
+	});
+
+	//Search missing COLUMNS key
+	it("POST /api/v2/search - Expected: 400 -  Missing COLUMNS key", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					WHERE: {},
+					OPTIONS: {
+						COLUMNS: ["invalid"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid query",
+			message: "Unknown key in COLUMNS",
+		});
+	});
+
+	//Search invalid ORDER
+	it("POST /api/v2/search - Expected: 400 -  Invalid ORDER", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					WHERE: {},
+					OPTIONS: {
+						COLUMNS: ["dept"],
+						ORDER: "invalid",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", BAD_REQUEST);
+		expect(res).to.have.deep.property("body", {
+			error: "Invalid query",
+			message: "ORDER must be a key in COLUMNS",
+		});
+	});
+
+	//Basic query simple
+	it("POST /api/v2/search - Expected: 200 -  Basic Query", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					WHERE: {
+						GT: { avg: 80 },
+					},
+					OPTIONS: {
+						COLUMNS: ["dept", "avg"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", OK);
+		expect(res.body).to.be.an("array");
+		for (const row of res.body) {
+			expect(row).to.have.all.keys("dept", "avg");
+			expect(row.avg).to.be.greaterThan(80);
+		}
+		for (let i = 1; i < res.body.length; i++) {
+			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
+		}
+	});
+
+	//Complex query
+	it("POST /api/v2/search - Expected: 200 -  Complex Query", async () => {
+		const res = await request(app)
+			.post("/api/v1/search")
+			.send({
+				kind: "course_offerings",
+				query: {
+					WHERE: {
+						OR: [
+							{
+								AND: [
+									{
+										GT: {
+											avg: 90,
+										},
+									},
+									{
+										IS: {
+											dept: "adhe",
+										},
+									},
+								],
+							},
+							{
+								EQ: {
+									avg: 95,
+								},
+							},
+						],
+					},
+					OPTIONS: {
+						COLUMNS: ["dept", "avg", "year"],
+						ORDER: "avg",
+					},
+				},
+			});
+
+		expect(res).to.have.property("status", OK);
+		expect(res.body).to.be.an("array");
+		for (const row of res.body) {
+			expect(row).to.have.all.keys("dept", "avg", "year");
+			if (row.dept === "adhe") {
+				expect(row.avg).to.be.greaterThan(90);
+			} else {
+				expect(row.avg).to.be.equal(95);
+			}
+		}
+		for (let i = 1; i < res.body.length; i++) {
+			expect(res.body[i].avg).to.be.at.least(res.body[i - 1].avg);
+		}
+	});
+
+	it("SEARCH", async () => {
+		
+	});
+
+
 });

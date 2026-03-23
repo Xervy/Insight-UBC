@@ -1,4 +1,5 @@
 import { validateHeaderName } from "http";
+import parse5 from 'parse5';
 import {
 	Building,
 	Comparator,
@@ -15,6 +16,8 @@ import {
 	SFieldComparatorOffering,
 	MFieldComparatorFacility,
 	SFieldComparatorFacility,
+	SearchRequestBodyTransformations,
+	UploadFacilityStats,
 } from "./Types";
 import { off } from "process";
 
@@ -217,7 +220,7 @@ export function EBNFError(message: string) {
 
 // Check if body produces a 422 error
 // return error message or false
-export function SearchValidationError(body: any) {
+export function SearchOfferingsValidationError(body: any) {
 	let isError = false;
 	const errorMes = {
 		error: "Validation failed",
@@ -237,6 +240,41 @@ export function SearchValidationError(body: any) {
 		isError = true;
 	} else if (!(body.kind == "course_offerings")) {
 		errorMes.fields["kind"] = "expected to be course_offerings";
+		isError = true;
+	}
+
+	if (body.query == undefined) {
+		errorMes.fields["query"] = "required but missing";
+		isError = true;
+	} else if (!(typeof body.query == "object")) {
+		errorMes.fields["query"] = "expected an object";
+		isError = true;
+	}
+
+	if (isError) return errorMes;
+	return isError;
+}
+
+export function SearchFacilitiesValidationError(body: any) {
+	let isError = false;
+	const errorMes = {
+		error: "Validation failed",
+		fields: {} as any,
+	};
+
+	if (!body) {
+		errorMes.fields = {
+			kind: "required but missing",
+			query: "required but missing"
+		}
+		return errorMes;
+	}
+
+	if (body.kind == undefined) {
+		errorMes.fields["kind"] = "required but missing";
+		isError = true;
+	} else if (!((body.kind == "course_offerings") || (body.kind == "facilities"))) {
+		errorMes.fields["kind"] = "expected to be course_offerings or facilities";
 		isError = true;
 	}
 
@@ -472,7 +510,6 @@ export function SearchOfferings(comparator: Comparator, dataAsColumns: any[]): a
 		case "NOT":
 			return SearchOfferingsNOT(comparator as NegationComparator, dataAsColumns);
 		default:
-			// TODO
 			throw new Error("oh no, not supposed to get here");
 	}
 }
@@ -499,7 +536,6 @@ export function SearchFacilities(comparator: Comparator, dataAsColumns: any[]): 
 		case "NOT":
 			return SearchFacilitiesNOT(comparator as NegationComparator, dataAsColumns);
 		default:
-			// TODO
 			throw new Error("oh no, not supposed to get here");
 	}
 }
@@ -526,6 +562,8 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SFieldOffering
 					case "audit":
 						toPush[col] = section[col];
 						break;
+					default:
+						throw new SearchEBNFError("Cannot mix course_offerings and facilities fields in one query");
 				}
 			}
 			cleanedData.push(toPush);
@@ -533,6 +571,9 @@ export function OfferingFieldsForColumn(data: Course[], columns: (SFieldOffering
 	}
 	return cleanedData;
 }
+
+// Same but with transformations
+
 
 // Turns list of Buildings into just a list of objects with the fields specified in columns
 // and returns it (Doesnt change original list)
@@ -557,6 +598,8 @@ export function FacilityFieldsForColumn(data: Building[], columns: (SFieldOfferi
 					case "seats":
 						toPush[col] = room[col];
 						break;
+					default:
+						throw new SearchEBNFError("Cannot mix course_offerings and facilities fields in one query");
 				}
 			}
 			cleanedData.push(toPush);
@@ -629,30 +672,30 @@ export function UpdateRoomLink(room: Room, bld: Building) {
 // courses, sections, buildings, rooms. Returns false if no error
 export function RetrieveAllQueryError(limit: any, offset: any) {
 	const errorMessage = {
-			error: "Invalid request parameters",
-			params: {} as any,
-		};
-		let isError = false;
+		error: "Invalid request parameters",
+		params: {} as any,
+	};
+	let isError = false;
 
-		if (isNaN(limit)) {
-			limit = 100;
-		}
-		if (limit < 1 || limit > 5000) {
-			errorMessage.params["limit"] = "expected an integer between 1 and 5000";
-			isError = true;
-		}
-		if (isNaN(offset)) {
-			offset = 0;
-		}
-		if (offset < 0) {
-			errorMessage.params["offset"] = "expected an integer >= 0";
-			isError = true;
-		}
+	if (isNaN(limit)) {
+		limit = 100;
+	}
+	if (limit < 1 || limit > 5000) {
+		errorMessage.params["limit"] = "expected an integer between 1 and 5000";
+		isError = true;
+	}
+	if (isNaN(offset)) {
+		offset = 0;
+	}
+	if (offset < 0) {
+		errorMessage.params["offset"] = "expected an integer >= 0";
+		isError = true;
+	}
 
-		if (isError) {
-			return errorMessage;
-		}
-		return isError;
+	if (isError) {
+		return errorMessage;
+	}
+	return isError;
 }
 
 // Returns the validation errorMessage for creating a building,
@@ -683,7 +726,7 @@ export function BuildingCreateError(body: any) {
 	if (body.lat == undefined) {
 		errorMessage.fields["lat"] = "required but missing";
 		isError = true;
-	} else if (!(typeof body.lat === "string")) {
+	} else if (!(typeof body.lat === "number")) {
 		errorMessage.fields["lat"] = "expected a number";
 		isError = true;
 	}
@@ -691,7 +734,7 @@ export function BuildingCreateError(body: any) {
 	if (body.lon == undefined) {
 		errorMessage.fields["lon"] = "required but missing";
 		isError = true;
-	} else if (!(typeof body.lon === "string")) {
+	} else if (!(typeof body.lon === "number")) {
 		errorMessage.fields["lon"] = "expected a number";
 		isError = true;
 	}
@@ -764,4 +807,203 @@ export function RoomCreateError(body: any, buildingID: string) {
 		return errorMessage;
 	}
 	return isError;
+}
+
+
+type FieldsWeCanAccess = {
+	nodeName: string;
+	childNodes?: FieldsWeCanAccess[];
+	attrs?: {
+		name: string;
+		value: string;
+	}[];
+	value?: string; // for #text
+}
+
+// Returns undefined if table if not found
+// Returns table if table with class = views-table is found
+function LocateTable(node: FieldsWeCanAccess): FieldsWeCanAccess | undefined { // Node is a child node
+	return LocateWithClass(node, "views-table");
+}
+
+function LocateWithClass(node: FieldsWeCanAccess | undefined, className: string): FieldsWeCanAccess | undefined {
+	if (node === undefined) return undefined;
+
+	if (node.attrs?.some((val) => val.name == "class" && val.value.split(" ").includes(className))) {
+		return node;
+	}
+
+	let table;
+	for (const child of node.childNodes ?? []) {
+		table = LocateWithClass(child, className);
+		if (table) {
+			return table;
+		}
+	}
+
+	return undefined;
+}
+
+function LocateFirstWithName(node: FieldsWeCanAccess | undefined, nodeName: "#text" | "a" | "tbody" | "tr" | "td"): FieldsWeCanAccess | undefined {
+	if (node === undefined) return undefined;
+
+	if (node.nodeName == nodeName) {
+		return node;
+	}
+
+	let table;
+	for (const child of node.childNodes ?? []) {
+		table = LocateFirstWithName(child, nodeName);
+		if (table) {
+			return table;
+		}
+	}
+
+	return undefined;
+}
+
+export function ParseBuildings(htmlContent: string, statObject: UploadFacilityStats) {
+	let document
+	try {
+		document = parse5.parse(htmlContent);
+	} catch (e) {
+		statObject.status = "failed";
+		statObject.message = "index.htm could not be parsed";
+		return;
+	}
+	let table;
+	for (const child of document.childNodes) {
+		table = LocateTable(child) as FieldsWeCanAccess | undefined;
+		if (table) {
+			break;
+		}
+	}
+	if (!table) {
+		statObject.status = "failed";
+		statObject.message = "No building table found in index.htm";
+		return;
+	}
+
+	const tbody = LocateFirstWithName(table, "tbody");
+	if (!tbody) {
+		statObject.status = "failed";
+		statObject.message = "No building table found in index.htm"; // Ask Pookie
+		return;
+	}
+
+	
+	const tableRows = tbody.childNodes;
+	if (!tableRows) {
+		statObject.status = "completed";
+		statObject.message = "Dataset processing complete";
+		return;
+	}
+	const buildings = [];
+	for (const row of tableRows) {
+		if (row.nodeName != "tr") {
+			continue;
+		}
+		const fullNameandLinkAParent = LocateWithClass(row, "views-field-title");
+		const fullnameA = LocateFirstWithName(fullNameandLinkAParent, "a");
+		const fullname = LocateFirstWithName(fullnameA, "#text")?.value?.trim();
+
+		const shortNameParent = LocateWithClass(row, "views-field-field-building-code");
+		const shortName = LocateFirstWithName(shortNameParent, "#text")?.value?.trim();
+
+		const addressParent = LocateWithClass(row, "views-field-field-building-address");
+		const address = LocateFirstWithName(addressParent, "#text")?.value?.trim();
+
+		const linkParent = LocateFirstWithName(fullNameandLinkAParent, "a");
+		const link = linkParent?.attrs?.find((attr) => attr.name == "href")?.value?.trim();
+
+		if (!fullname || !shortName || !address || !link) {
+			continue;
+		}
+
+		buildings.push({
+			fullname,
+			shortName,
+			address,
+			link
+		});
+	}
+
+	return buildings;
+}
+
+
+export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats) {
+	let document
+	try {
+		document = parse5.parse(htmlContent);
+	} catch (e) {
+		// statObject.status = "failed";
+		// statObject.message = "index.htm could not be parsed";
+		return;
+	}// Probably dont need these?
+
+	let table;
+	for (const child of document.childNodes) {
+		table = LocateTable(child) as FieldsWeCanAccess | undefined;
+		if (table) {
+			break;
+		}
+	} 
+
+	if (!table) {
+		// statObject.status = "failed";
+		// statObject.message = "No building table found in index.htm";
+		return;
+	}// Probably dont need these?
+
+	const tbody = LocateFirstWithName(table, "tbody");
+	if (!tbody) {
+		// statObject.status = "failed";
+		// statObject.message = "No building table found in index.htm"; // Ask Pookie
+		return;
+	}
+
+	
+	const tableRows = tbody.childNodes;
+	if (!tableRows) {
+		// statObject.status = "completed";
+		// statObject.message = "Dataset processing complete";
+		return;
+	}
+	const rooms = [];
+	for (const row of tableRows) {
+		if (row.nodeName != "tr") {
+			continue;
+		}
+		const numberAParent = LocateWithClass(row, "views-field-field-room-number");
+		const numberParent = LocateFirstWithName(numberAParent, "a");
+		const number = LocateFirstWithName(numberParent, "#text")?.value?.trim();
+
+		const seatsParent = LocateWithClass(row, "views-field-field-room-capacity");
+		const seats = LocateFirstWithName(seatsParent, "#text")?.value?.trim();
+
+		const furnitureParent = LocateWithClass(row, "views-field-field-room-furniture");
+		const furniture = LocateFirstWithName(furnitureParent, "#text")?.value?.trim();
+
+		const typeParent = LocateWithClass(row, "views-field-field-room-type");
+		const type = LocateFirstWithName(typeParent, "#text")?.value?.trim();
+
+		const hrefAParent = LocateWithClass(row, "views-field-nothing");
+		const hrefParent = LocateFirstWithName(hrefAParent, "a");
+		const href = hrefParent?.attrs?.find((attr) => attr.name == "href")?.value?.trim();		
+
+		if (!number || !seats || !furniture || !type || ! href) {
+			continue;
+		}
+
+		rooms.push({
+			number,
+			seats,
+			furniture,
+			type,
+			href
+		});
+	}
+
+	return rooms;
 }

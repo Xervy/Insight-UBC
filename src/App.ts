@@ -2,20 +2,27 @@ import fs from "fs/promises";
 import express from "express";
 import cors from "cors";
 
-import multer from "multer";
+import multer, { Field } from "multer";
 import JSZip from "jszip";
+import parse5 from 'parse5';
 
 import {
 	Course,
 	Section,
 	Offering,
 	Upload,
-	UploadStats,
+	UploadOfferingStats,
 	SearchRequestBody,
 	MFieldArrOffering,
 	SFieldArrOffering,
 	SearchEBNFError,
 	Data,
+	MFieldArrFacility,
+	SFieldArrFacility,
+	UploadFacilityStats,
+	UploadStats,
+	Building,
+	Room,
 } from "./Types";
 import {
 	OfferingFieldsForColumn,
@@ -23,7 +30,7 @@ import {
 	EBNFError,
 	generateSectionID,
 	SearchOfferings,
-	SearchValidationError,
+	SearchOfferingsValidationError,
 	SectionCreateError,
 	UpdateCourseLink,
 	UpdateListOfCoursesLinks,
@@ -36,6 +43,11 @@ import {
 	UpdateListOfRoomsLinks,
 	UpdateRoomLink,
 	RoomCreateError,
+	SearchFacilitiesValidationError,
+	FacilityFieldsForColumn,
+	SearchFacilities,
+	ParseBuildings as ParseBuildings,
+	ParseRooms,
 } from "./Helpers";
 import { error } from "console";
 import { read, readdir } from "fs";
@@ -434,67 +446,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			});
 			return;
 		}
-
-		if (foundUpload.status == "processing") {
-			res.status(200).json({
-				id: datasetID,
-				status: "processing",
-				kind: "course_offerings",
-				stats: {
-					files_total: 0,
-					files_processed: 0,
-					files_skipped: 0,
-					courses_seen: 0,
-					courses_added: 0,
-					courses_modified: 0,
-					sections_seen: 0,
-					sections_added: 0,
-					sections_modified: 0,
-				},
-				message: "Processing in progress",
-			});
-			return;
-		}
-		if (foundUpload.status == "failed") {
-			res.status(200).json({
-				id: datasetID,
-				status: "failed",
-				kind: "course_offerings",
-				stats: {
-					files_total: 0,
-					files_processed: 0,
-					files_skipped: 0,
-					courses_seen: 0,
-					courses_added: 0,
-					courses_modified: 0,
-					sections_seen: 0,
-					sections_added: 0,
-					sections_modified: 0,
-				},
-				message: foundUpload.message,
-			});
-			return;
-		}
-		if (foundUpload!.status == "completed") {
-			res.status(200).json({
-				id: datasetID,
-				status: "completed",
-				kind: "course_offerings",
-				stats: {
-					files_total: foundUpload.files_total,
-					files_processed: foundUpload.files_processed,
-					files_skipped: foundUpload.files_skipped,
-					courses_seen: foundUpload.courses_seen,
-					courses_added: foundUpload.courses_added,
-					courses_modified: foundUpload.courses_modified,
-					sections_seen: foundUpload.sections_seen,
-					sections_added: foundUpload.sections_added,
-					sections_modified: foundUpload.sections_modified,
-				},
-				message: "Dataset processing complete",
-			});
-			return;
-		}
+		res.status(200).json(foundUpload);
 	});
 
 	app.post("/api/v1/datasets", upload.single("archive"), async (req, res) => {
@@ -531,17 +483,20 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			id: id.toString(),
 			status: "processing",
 			kind: req.body.kind,
-			message: "Dataset accepted for processing",
-			files_total: 0,
-			files_processed: 0,
-			files_skipped: 0,
-			courses_seen: 0,
-			courses_added: 0,
-			courses_modified: 0,
-			sections_seen: 0,
-			sections_added: 0,
-			sections_modified: 0,
-		} as UploadStats;
+			stats: {
+				files_total: 0,
+				files_processed: 0,
+				files_skipped: 0,
+				courses_seen: 0,
+				courses_added: 0,
+				courses_modified: 0,
+				sections_seen: 0,
+				sections_added: 0,
+				sections_modified: 0,
+			},
+			message: "Processing in progress",
+
+		} as UploadOfferingStats;
 		bulkUploads.push(stats);
 
 		res.status(202).json({
@@ -553,20 +508,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		const courses = await readData();
 
-		// const coursesToAdd = [] as Course[];
-
 		// The file will be available as req.file
 		// The zip content is in req.file.buffer
 		const zipBuffer = req.file!.buffer;
-
-		// CHECK IF ZIPBUFFER IS ACTUALLY A ZIP 	ASK POOKIE
-		// if (!zipBuffer || zipBuffer.length < 4) {
-		// 	// Not a Valid Zip
-		// 	stats.status = "failed";
-		// 	return;
-		// }
-
-		
 
 		let zip;
 		// Use JSZip to process the buffer
@@ -578,7 +522,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		
+
 		// CHECK FOR COURSES FOLDER
 		const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
 		if (!hasCoursesFolder) {
@@ -592,22 +536,31 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			(file) => file.name.startsWith("courses/") && file.name !== "courses/" && !file.dir
 		);
 
+		let ft = 0; // files total
+		let fp = 0; // files processed 
+		let fs = 0; // files skipped
+		let cs = 0; // courses seen
+		let ca = 0; // courses added
+		let cm = 0; // courses modified
+		let ss = 0; // sections seen
+		let sa = 0; // added
+		let sm = 0; // modified
 		for (const file of coursesFiles) {
 			const fileContent = await file.async("string");
-			stats.files_total += 1;
+			ft += 1;
 			let parsedFile;
 			try {
 				parsedFile = JSON.parse(fileContent);
 
 				if (!parsedFile.result || !Array.isArray(parsedFile.result)) {
-					stats.files_skipped += 1;
+					fs += 1;
 					continue;
 				}
 			} catch {
-				stats.files_skipped += 1;
+				fs += 1;
 				continue; // YAY OR NAY?
 			}
-			stats.files_processed += 1;
+			fp += 1;
 			// JSON needs to have parameter 'result' which must be an array
 
 			// record is each offering object in result
@@ -687,7 +640,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 								fail: record.Fail,
 								audit: record.Audit,
 							});
-							stats.sections_added += 1;
+							sa += 1;
 						} else {
 							alreadyHasSection.instructor = record.Professor;
 							if (record.Section == "overall") {
@@ -700,10 +653,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							alreadyHasSection.fail = record.Fail;
 							alreadyHasSection.audit = record.Audit;
 
-							stats.sections_modified += 1;
+							sm += 1;
 						}
 
-						stats.courses_modified += 1;
+						cm += 1;
 						sectionWasAdded = true;
 					}
 				}
@@ -726,16 +679,28 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							},
 						],
 					});
-					stats.courses_added += 1;
-					stats.sections_added += 1;
+					ca += 1;
+					sa += 1;
 				}
 			}
 		}
-		stats.courses_seen = stats.courses_added + stats.courses_modified;
-		stats.sections_seen = stats.sections_added + stats.sections_modified;
+		cs = ca + cm;
+		ss = sa + sm;
 		// Write Json to file
 		await writeCoursesToData(courses);
 		stats.status = "completed";
+		stats.stats = {
+			files_total: ft,
+			files_processed: fp,
+			files_skipped: fs,
+			courses_seen: cs,
+			courses_added: ca,
+			courses_modified: cm,
+			sections_seen: ss,
+			sections_added: sa,
+			sections_modified: sm,
+		}
+		stats.message = "Dataset processing complete";
 	});
 
 
@@ -954,7 +919,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const body = req.body as SearchRequestBody;
 
 		// SC 422
-		const validation = SearchValidationError(body);
+		const validation = SearchOfferingsValidationError(body);
 		if (!(typeof validation === "boolean")) {
 			res.status(422).json(validation);
 			return;
@@ -986,9 +951,11 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		const order = options.ORDER;
 		if (order) {
-			if (!columns.includes(order)) {
-				res.status(400).json(EBNFError("ORDER must be a key in COLUMNS"));
-				return;
+			if (typeof order == "string") {
+				if (!columns.includes(order)) {
+					res.status(400).json(EBNFError("ORDER must be a key in COLUMNS"));
+					return;
+				}
 			}
 		}
 
@@ -1004,8 +971,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 		// Initial EBNF Error Check Complete
-
-		const columnedData = OfferingFieldsForColumn(data, columns);
+		let columnedData = [];
+		try {
+			columnedData = OfferingFieldsForColumn(data, columns);
+		} catch (e: any) {
+			res.status(400).json(EBNFError((e as SearchEBNFError).message));
+			return;
+		}
 
 		try {
 			const filteredCourses = SearchOfferings(where, columnedData);
@@ -1018,8 +990,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				return;
 			}
 
-			if (order) {
-				columnedData.sort((a: any, b: any) => {
+			if (order && typeof order === "string") {
+				filteredCourses.sort((a: any, b: any) => {
 					if (typeof a[order] == 'string') {
 						return a[order].localeCompare(b[order]);
 					} else if (typeof a[order] == 'number') {
@@ -1077,7 +1049,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!building) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id ${buildingID}`
+				message: `no building with id '${buildingID}'`
 			});
 			return;
 		}
@@ -1136,14 +1108,18 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id ${buildingID}`
+				message: `no building with id '${buildingID}'`
 			});
 			return;
 		}
 		const buildingsAfterDelete = buildings.filter((b) => !(b.id == buildingID));
 		data.facilities = buildingsAfterDelete;
 		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
-		res.status(200).json(buildingExists);
+		const { rooms, ...rest } = buildingExists;
+		res.status(200).json({
+			rooms: rooms.length,
+			...rest
+		});
 	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
@@ -1166,15 +1142,22 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id ${buildingID}`
+				message: `no building with id '${buildingID}'`
 			});
 			return;
 		}
 
 		const rooms = buildingExists.rooms;
-		const roomsWithLinks = UpdateListOfRoomsLinks(rooms, buildingExists);
+		let roomsToMatchLimit;
+		if (rooms.length > limit) {
+			roomsToMatchLimit = rooms.slice(0, limit);
+		} else {
+			roomsToMatchLimit = rooms;
+		}
+
+		const roomsWithLinks = UpdateListOfRoomsLinks(roomsToMatchLimit, buildingExists);
 		res.status(200).json({
-			total: rooms.length,
+			total: roomsToMatchLimit.length,
 			limit,
 			offset,
 			items: roomsWithLinks
@@ -1191,7 +1174,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id ${buildingID}`
+				message: `no building with id '${buildingID}'`
 			});
 			return;
 		}
@@ -1202,7 +1185,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!roomExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no room with id ${roomID}`
+				message: `no room with id '${roomID}'`
 			});
 			return;
 		}
@@ -1231,7 +1214,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id ${buildingID}`
+				message: `no building with id '${buildingID}'`
 			});
 			return;
 		}
@@ -1278,7 +1261,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!buildingExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no building with id ${buildingID}`
+				message: `no building with id '${buildingID}'`
 			});
 			return;
 		}
@@ -1287,7 +1270,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		if (!roomExists) {
 			res.status(404).json({
 				error: "Not found",
-				message: `no room with id ${roomID}`
+				message: `no room with id '${roomID}'`
 			});
 			return;
 		}
@@ -1296,6 +1279,641 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		buildingExists.rooms = roomsAfterDelete;
 		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
 		res.status(200).json(roomExists);
+	});
+
+	app.post("/api/v2/datasets", upload.single("archive"), async (req, res) => {
+		// SC 422
+		let isError = false;
+		const errorMes = {
+			error: "Validation failed",
+			fields: {} as any,
+		};
+		if (!req.body || !req.body.kind) {
+			errorMes.fields["kind"] = "required but missing";
+			isError = true;
+		} else if (req.body.kind != "course_offerings" && req.body.kind != "facilities") {
+			errorMes.fields["kind"] = "expected to be course_offerings or facilities";
+			isError = true;
+		}
+		if (!req.file) {
+			errorMes.fields["archive"] = "required but missing";
+			isError = true;
+		} else if (req.file.size == 0) {
+			errorMes.fields["archive"] = "expected non-empty file";
+			isError = true;
+		}
+		if (isError) {
+			res.status(422).json(errorMes);
+			return;
+		}
+
+		// SC 200
+
+		const id = generateSectionID();
+
+		if (req.body.kind == "course_offerings") {
+
+			const statObject = {
+				id: id.toString(),
+				status: "processing",
+				kind: req.body.kind,
+				stats: {
+					files_total: 0,
+					files_processed: 0,
+					files_skipped: 0,
+					courses_seen: 0,
+					courses_added: 0,
+					courses_modified: 0,
+					sections_seen: 0,
+					sections_added: 0,
+					sections_modified: 0,
+				},
+				message: "Processing in progress",
+
+			} as UploadOfferingStats;
+			bulkUploads.push(statObject);
+
+			const stats = statObject.stats;
+
+			res.status(202).json({
+				id: id.toString(),
+				status: "processing",
+				kind: "course_offerings",
+				message: "Dataset accepted for processing",
+			});
+
+			const OfferingsInData = await readData();
+
+			// The file will be available as req.file
+			// The zip content is in req.file.buffer
+			const zipBuffer = req.file!.buffer;
+
+			let zip;
+			// Use JSZip to process the buffer
+			try {
+				zip = await JSZip.loadAsync(zipBuffer);
+			} catch (e) {
+				statObject.status = "failed";
+				statObject.message = "Data is not in a valid zip format";
+				return;
+			}
+
+
+			// CHECK FOR COURSES FOLDER
+			const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
+			if (!hasCoursesFolder) {
+				statObject.status = "failed";
+				statObject.message = "Missing root courses directory";
+				return;
+			}
+
+			// All files in courses
+			const coursesFiles = Object.values(zip.files).filter(
+				(file) => file.name.startsWith("courses/") && file.name !== "courses/" && !file.dir
+			);
+
+			for (const file of coursesFiles) {
+				const fileContent = await file.async("string");
+				stats.files_total += 1;
+				let parsedFile;
+				try {
+					parsedFile = JSON.parse(fileContent);
+
+					if (!parsedFile.result || !Array.isArray(parsedFile.result)) {
+						stats.files_skipped += 1;
+						continue;
+					}
+				} catch {
+					stats.files_skipped += 1;
+					continue; // YAY OR NAY?
+				}
+				stats.files_processed += 1;
+				// JSON needs to have parameter 'result' which must be an array
+
+				// record is each offering object in result
+				for (const record of parsedFile.result) {
+					// Check Database if Course already Exists
+					// If So: Iterate through Sections to find if Section Exists, Determine if new Section or modify section
+					// If not: Push the new course to the database
+					const courseID = record.Subject + record.Course;
+					const sectionID = record.id;
+					let sectionWasAdded = false;
+
+					if (
+						record.id === undefined ||
+						record.Course === undefined ||
+						record.Title === undefined ||
+						record.Professor === undefined ||
+						record.Subject === undefined ||
+						record.Section === undefined ||
+						record.Year === undefined ||
+						record.Avg === undefined ||
+						record.Pass === undefined ||
+						record.Fail === undefined ||
+						record.Audit === undefined
+					) {
+						continue;
+					} else if (
+						!(
+							typeof record.id === "number" &&
+							typeof record.Course === "string" &&
+							typeof record.Title === "string" &&
+							typeof record.Professor === "string" &&
+							typeof record.Subject === "string" &&
+							typeof record.Section === "string" &&
+							typeof record.Year === "string" &&
+							typeof record.Avg === "number" &&
+							typeof record.Pass === "number" &&
+							typeof record.Fail === "number" &&
+							typeof record.Audit === "number"
+						)
+					) {
+						continue;
+					}
+
+					let sectionYear = Number(record.Year);
+					if (record.Section == "overall") {
+						sectionYear = 1900;
+					}
+
+					for (const course of OfferingsInData) {
+						if (course.id == courseID) {
+							// Make Updates
+							course.code = record.Course;
+							course.dept = record.Subject;
+							let mostRecent = true;
+
+							for (const section of course.sections) {
+								if (section.year >= sectionYear) {
+									mostRecent = false;
+									break;
+								}
+							}
+							if (mostRecent) {
+								course.title = record.Title;
+							}
+
+							// Check if Course already has Section
+							// If No, Push Section to Course
+							// If Yes, Update Section Parameters
+							const alreadyHasSection = course.sections.find((section) => section.id == record.id);
+							if (!alreadyHasSection) {
+								course.sections.push({
+									id: sectionID.toString(),
+									instructor: record.Professor,
+									year: sectionYear,
+									avg: record.Avg,
+									pass: record.Pass,
+									fail: record.Fail,
+									audit: record.Audit,
+								});
+								stats.sections_added += 1;
+							} else {
+								alreadyHasSection.instructor = record.Professor;
+								if (record.Section == "overall") {
+									alreadyHasSection.year = 1900;
+								} else {
+									alreadyHasSection.year = sectionYear;
+								}
+								alreadyHasSection.avg = record.Avg;
+								alreadyHasSection.pass = record.Pass;
+								alreadyHasSection.fail = record.Fail;
+								alreadyHasSection.audit = record.Audit;
+
+								stats.sections_modified += 1;
+							}
+
+							stats.courses_modified += 1;
+							sectionWasAdded = true;
+						}
+					}
+					// If the Course does not already exist, add it to jsonFile
+					if (!sectionWasAdded) {
+						OfferingsInData.push({
+							id: courseID,
+							title: record.Title,
+							dept: record.Subject,
+							code: record.Course,
+							sections: [
+								{
+									id: sectionID.toString(),
+									instructor: record.Professor,
+									year: sectionYear,
+									avg: record.Avg,
+									pass: record.Pass,
+									fail: record.Fail,
+									audit: record.Audit,
+								},
+							],
+						});
+						stats.courses_added += 1;
+						stats.sections_added += 1;
+					}
+				}
+			}
+			stats.courses_seen = stats.courses_added + stats.courses_modified;
+			stats.sections_seen = stats.sections_added + stats.sections_modified;
+			// Write Json to file
+			await writeCoursesToData(OfferingsInData);
+			statObject.status = "completed";
+		} else { // kind == "facilites"
+
+			const statObject = {
+				id: id.toString(),
+				status: "processing",
+				kind: "facilities",
+				stats: {
+					buildings_added: 0,
+					buildings_modified: 0,
+					rooms_added: 0,
+					rooms_modified: 0
+				},
+				message: "Processing in progress"
+			} as UploadFacilityStats;
+			bulkUploads.push(statObject);
+
+			res.status(202).json({
+				id: id.toString(),
+				status: "processing",
+				kind: "facilities",
+				message: "Dataset accepted for processing",
+			});
+
+			const file = await fs.readFile(DATA_FILE, "utf-8");
+			const data = JSON.parse(file) as Data;
+			const buildings = data.facilities;
+
+			// Check for Valid Zip File
+			const zipBuffer = req.file!.buffer;
+			let zip;
+			// Use JSZip to process the buffer
+			try {
+				zip = await JSZip.loadAsync(zipBuffer);
+			} catch (e) {
+				statObject.status = "failed";
+				statObject.message = "Data is not in a valid zip format";
+				return;
+			}
+
+			if (!zip.files["index.htm"]) {
+				statObject.status = "failed";
+				statObject.message = "Missing index.htm file";
+				return;
+			}
+
+			type FieldsWeCanAccess = {
+				nodeName: string;
+				childNodes?: FieldsWeCanAccess[];
+				attrs?: {
+					name: string;
+					value: string;
+				}[];
+				value?: string; // for #text
+			}
+
+			const htmlContent = await zip.files["index.htm"].async("string");
+			const halfBuiltBuildings = ParseBuildings(htmlContent, statObject);
+			const fullBuiltBuildings = [] as Building[];
+			let rooms = [] as Room[];
+			for (const bld of halfBuiltBuildings!) {
+				const fileLink = bld.link.substring(2); // remove the "./"
+				const roomHTML = await zip.files[fileLink].async("string");
+
+				const halfBuiltRooms = ParseRooms(roomHTML, statObject);
+
+				if (halfBuiltRooms) {
+					for (const room of halfBuiltRooms) {
+						rooms.push({
+							id: `${bld.shortName}_${room.number}`,
+							building: bld.shortName,
+							number: room.number,
+							type: room.type,
+							furniture: room.furniture,
+							href: room.href,
+							seats: Number(room.seats)
+						});
+					}
+				}
+				const res = await fetch(`http://cs310.students.cs.ubc.ca:11316/api/v1/project_team037/${bld.address}`);
+				const { lat, lon } = await res.json() as any;
+				if (!lat || !lon) {
+					continue;
+				}
+				fullBuiltBuildings.push({
+					id: bld.shortName,
+					name: bld.fullname,
+					address: bld.address,
+					lat: lat,
+					lon: lon,
+					rooms: rooms
+				});
+			}
+
+			let ba = 0;
+			// let bm = 0;
+			// let ra = 0;
+			// let rm = 0;
+			for (const bld of fullBuiltBuildings) {
+				const foundBuilding = buildings.find((build) => build.id == bld.id);
+				if (foundBuilding) {
+
+					foundBuilding.id = bld.id;
+					foundBuilding.name = bld.name;
+					foundBuilding.address = bld.address;
+					foundBuilding.lat = bld.lat;
+					foundBuilding.lon = bld.lon;
+					foundBuilding.rooms = bld.rooms;
+					// bm += 1;
+				} else {
+					buildings.push(bld);
+					ba += 1;
+				}
+
+			}
+			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			statObject.status = "completed";
+			statObject.message = "Dataset processing complete";
+			statObject.stats.buildings_added = ba;
+		}
+
+	});
+
+	app.get("/api/v2/datasets/:dataset", async (req, res) => {
+		const datasetID = req.params.dataset;
+		let found = false;
+		const foundUpload = bulkUploads.find((upload) => upload.id == datasetID);
+
+		if (!foundUpload) {
+			res.status(404).json({
+				error: "Not found",
+				message: `no dataset with id '${datasetID}'`,
+			});
+			return;
+		}
+		res.status(200).json(foundUpload);
+
+	});
+
+	app.post("/api/v2/search", async (req, res) => {
+		// SC 422
+		const body = req.body as SearchRequestBody;
+		const validation = SearchFacilitiesValidationError(body);
+		if (!(typeof validation === "boolean")) {
+			res.status(422).json(validation);
+			return;
+		}
+
+		// SC 400
+		const where = body.query.WHERE;
+		if (where === undefined) {
+			res.status(400).json(EBNFError("Missing WHERE"));
+			return;
+		}
+
+		const options = body.query.OPTIONS;
+		if (options === undefined) {
+			res.status(400).json(EBNFError("Missing OPTIONS"));
+			return;
+		}
+
+		const columns = options.COLUMNS;
+		if (columns && columns.length == 0) {
+			res.status(400).json(EBNFError("Missing COLUMNS"));
+			return;
+		}
+
+		if (columns.some((key) => !(MFieldArrOffering.includes(key) || SFieldArrOffering.includes(key) || MFieldArrFacility.includes(key) || SFieldArrFacility.includes(key)))) {
+			res.status(400).json(EBNFError("Unknown key in COLUMNS"));
+			return;
+		}
+
+		const order = options.ORDER;
+		if (order) {
+			if (typeof order === "string") {
+				if (!columns.includes(order)) {
+					res.status(400).json(EBNFError("ORDER must be a key in COLUMNS"));
+					return;
+				}
+			} else {
+				for (const key of order.keys) {
+					if (!columns.includes(key)) {
+						res.status(400).json(EBNFError("All ORDER keys must be in COLUMNS"));
+					}
+				}
+				if (!(order.dir == "UP" || order.dir == "DOWN")) {
+					res.status(400).json(EBNFError("Invalid sort direction (must be UP or DOWN)"));
+				}
+			}
+		}
+
+		if (Object.keys(where).length > 1) {
+			res.status(400).json(EBNFError("WHERE must be an object with at most one FILTER"));
+		}
+
+		const optionKeys = Object.keys(options);
+		if (!optionKeys.includes("COLUMNS")) {
+			res.status(400).json(EBNFError("OPTIONS must be an object with COLUMNS and optional ORDER"));
+		}
+
+		const transformations = body.query.TRANSFORMATIONS;
+		if (transformations) {
+			if (!transformations.GROUP) {
+				res.status(400).json(EBNFError("Missing GROUP in TRANSFORMATIONS"));
+				return;
+			}
+			if (!transformations.APPLY) {
+				res.status(400).json(EBNFError("Missing APPLY in TRANSFORMATIONS"));
+				return;
+			}
+
+			if (transformations.GROUP.length == 0) {
+				res.status(400).json(EBNFError("GROUP must be a non-empty array"));
+				return;
+			}
+			if (!Array.isArray(transformations.APPLY)) {
+				res.status(400).json(EBNFError("APPLY must be an array"));
+				return;
+			}
+
+			for (const g of transformations.GROUP) {
+				if (!columns.includes(g)) {
+					res.status(400).json(EBNFError("When TRANSFORMATIONS is present, all COLUMNS must be in GROUP or APPLY"));
+					return;
+				}
+			}
+			for (const a of transformations.APPLY) {
+				const requiredInColumns = Object.keys(a);
+				for (const required of requiredInColumns) {
+					if (!columns.includes(required)) {
+						res.status(400).json(EBNFError("When TRANSFORMATIONS is present, all COLUMNS must be in GROUP or APPLY"));
+						return;
+					}
+				}
+			}
+		}
+
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		const data = JSON.parse(file) as Data;
+
+		if (body.kind == "course_offerings") {
+			const courses = data.course_offerings;
+
+			let columnedCourses = [];
+			try {
+				columnedCourses = OfferingFieldsForColumn(courses, columns);
+			} catch (e: any) {
+				res.status(400).json((e as SearchEBNFError).message);
+				return;
+			}
+
+			try {
+				const filteredCourses = SearchOfferings(where, columnedCourses);
+				if (filteredCourses.length > 5000) {
+					res.status(413).json({
+						error: "Too many results",
+						message: "Query would return more than 5000 results",
+						limit: 5000,
+					});
+					return;
+				}
+
+				// TODO: Ask Ben
+				if (order) {
+					if (typeof order == "string") {
+						filteredCourses.sort((a: any, b: any) => {
+							if (typeof a[order] == 'string') {
+								return a[order].localeCompare(b[order]);
+							} else if (typeof a[order] == 'number') {
+								return a[order] - b[order];
+							} else {
+								return -1;
+							}
+						});
+					} else {
+						if (order.dir == "UP") {
+							filteredCourses.sort((a: any, b: any) => {
+								for (const key of order.keys) {
+									let result = 0;
+									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+										result = a[key].localeCompare(b[key]);
+									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+										result = a[key] - b[key];
+									}
+									// No Tie breaker needed
+									if (result !== 0) {
+										return result;
+									}
+								}
+								// Everything is tied, keep same order
+								return 0;
+							});
+
+						} else { // order.dir == "DOWN" // Reversed Case
+							filteredCourses.sort((a: any, b: any) => {
+								for (const key of order.keys) {
+									let result = 0;
+									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+										result = b[key].localeCompare(a[key]);
+									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+										result = b[key] - a[key];
+									}
+									// No Tie breaker needed
+									if (result !== 0) {
+										return result;
+									}
+								}
+								// Everything is tied, keep same order
+								return 0;
+							});
+						}
+					}
+				}
+
+				res.status(200).json(filteredCourses);
+			} catch (e: any) {
+				res.status(400).json(EBNFError((e as SearchEBNFError).message));
+				return;
+			}
+		} else if (body.kind == "facilities") {
+			const buildings = data.facilities;
+
+			let columnedBuildings = [];
+			try {
+				columnedBuildings = FacilityFieldsForColumn(buildings, columns);
+			} catch (e: any) {
+				res.status(400).json((e as SearchEBNFError).message); // no mixing offering and facility fields
+				return;
+			}
+
+			try {
+				const filteredBuildings = SearchFacilities(where, columnedBuildings);
+				if (filteredBuildings.length > 5000) {
+					res.status(413).json({
+						error: "Too many results",
+						message: "Query would return more than 5000 results",
+						limit: 5000,
+					});
+					return;
+				}
+
+				if (order) {
+					if (typeof order == "string") {
+						columnedBuildings.sort((a: any, b: any) => {
+							if (typeof a[order] == 'string') {
+								return a[order].localeCompare(b[order]);
+							} else if (typeof a[order] == 'number') {
+								return a[order] - b[order];
+							} else {
+								return -1;
+							}
+						});
+					} else {
+						if (order.dir == "UP") {
+							columnedBuildings.sort((a: any, b: any) => {
+								for (const key of order.keys) {
+									let result = 0;
+									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+										result = a[key].localeCompare(b[key]);
+									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+										result = a[key] - b[key];
+									}
+									// No Tie breaker needed
+									if (result !== 0) {
+										return result;
+									}
+								}
+								// Everything is tied, keep same order
+								return 0;
+							});
+
+						} else { // order.dir == "DOWN" // Reversed Case
+							columnedBuildings.sort((a: any, b: any) => {
+								for (const key of order.keys) {
+									let result = 0;
+									if (typeof a[key] === 'string' && typeof b[key] === "string") {
+										result = b[key].localeCompare(a[key]);
+									} else if (typeof a[key] === 'number' && typeof b[key] === "number") {
+										result = b[key] - a[key];
+									}
+									// No Tie breaker needed
+									if (result !== 0) {
+										return result;
+									}
+								}
+								// Everything is tied, keep same order
+								return 0;
+							});
+						}
+					}
+				}
+
+				res.status(200).json(filteredBuildings);
+			} catch (e: any) {
+				res.status(400).json(EBNFError((e as SearchEBNFError).message));
+			}
+		} else {
+			throw new Error("Why are you here? kind: offering/facility error")
+		}
 	});
 
 

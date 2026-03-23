@@ -63,21 +63,38 @@ export type Upload = {
 	message?: string;
 };
 
-export type UploadStats = {
+export type UploadStats = UploadOfferingStats | UploadFacilityStats;
+
+export type UploadOfferingStats = {
 	id: string;
-	status: string;
-	kind: string;
+	status: "processing" | "completed" | "failed";
+	kind: "course_offerings";
+	stats: {
+		files_total: number;
+		files_processed: number;
+		files_skipped: number;
+		courses_seen: number;
+		courses_added: number;
+		courses_modified: number;
+		sections_seen: number;
+		sections_added: number;
+		sections_modified: number;
+	}
 	message: string;
-	files_total: number;
-	files_processed: number;
-	files_skipped: number;
-	courses_seen: number;
-	courses_added: number;
-	courses_modified: number;
-	sections_seen: number;
-	sections_added: number;
-	sections_modified: number;
 };
+
+export type UploadFacilityStats = {
+	id: string;
+	status: "processing" | "completed" | "failed";
+	kind: "facilities";
+	stats: {
+		buildings_added: number;
+		buildings_modified: number;
+		rooms_added: number;
+		rooms_modified: number;
+	}
+	message: string;
+}
 
 export type UploadObject = {
 	id: number;
@@ -98,13 +115,32 @@ export type SearchRequestBody = {
 	query: {
 		WHERE: Comparator;
 		OPTIONS: SearchRequestBodyOptions;
+		TRANSFORMATIONS?: SearchRequestBodyTransformations; 
 	};
 };
 
 export type SearchRequestBodyOptions = {
 	COLUMNS: (MFieldOffering & SFieldOffering)[];
-	ORDER?: string;
+	ORDER?: string | SearchRequestBodyOptionsOrder;
 };
+
+export type SearchRequestBodyOptionsOrder = {
+	dir: "UP" | "DOWN";
+	keys: string[]
+}
+
+export type SearchRequestBodyTransformations = {
+	GROUP: MathStringField[];
+	APPLY: ApplyRule[];
+}
+
+export type ApplyRule = {
+	[key in string]: {
+		[key in ApplyToken]: MathStringField;
+	}
+}
+
+export type ApplyToken = "MAX" | "MIN" | "AVG" | "COUNT" | "SUM";
 
 // export type SearchColumnDataS = {
 // 	[key in SField]?: string;
@@ -149,6 +185,8 @@ export type SFieldComparatorFacility = {
 export type NegationComparator = {
 	[key in "NOT"]?: Comparator;
 };
+
+export type MathStringField = MFieldFacility | MFieldOffering | SFieldFacility | SFieldOffering;
 
 export const MFieldArrOffering = ["avg", "pass", "fail", "audit", "year"];
 export const SFieldArrOffering = ["title", "dept", "code", "instructor"];
