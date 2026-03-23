@@ -3073,13 +3073,50 @@ describe("REST API v1", function () {
 			.field("kind", "facilities")
 			.attach("archive", datasetBuffer, "campus.zip");
 
-		let res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
-		while (res.body.status == "processing") {
-			res = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		let yippeee = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
+		while (yippeee.body.status == "processing") {
+			yippeee = await request(app).get(`/api/v2/datasets/${uploadRes.body.id}`);
 		}
-		expect(res).to.have.property("status", OK);
-		expect(res.body.stats).to.have.property("buildings_added", 74);
+		expect(yippeee).to.have.property("status", OK);
+		expect(yippeee.body.stats).to.have.property("buildings_added", 74);
 
+				const res = await request(app)
+			.post("/api/v2/search")
+			.send({
+				kind: "facilities",
+				query: {
+					WHERE: {
+						OR: [
+							{
+								AND: [
+									{
+										GT: {
+											lat: 0,
+										},
+									},
+									{
+										IS: {
+											furniture: "*A*",
+										},
+									},
+								],
+							},
+							{
+								EQ: {
+									seats: 300,
+								},
+							},
+						],
+					},
+					OPTIONS: {
+						COLUMNS: ["seats", "furniture", "lat"],
+						ORDER: "lat",
+					},
+				},
+			});
+
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {});
 	});
 
 	it("POST /api/v1/search - Expected: 422 - Invalid kind field", async () => {
@@ -3303,7 +3340,7 @@ describe("REST API v1", function () {
 	});
 
 	it("SEARCH", async () => {
-		
+
 	});
 
 
