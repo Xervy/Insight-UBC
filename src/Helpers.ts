@@ -218,6 +218,16 @@ export function EBNFError(message: string) {
 	return errorMes;
 }
 
+// Formats Error Message for SC 404 and returns it
+// Needs building/course/section/room/dataset as type
+// the relative id
+export function Generate404Error(type: string, id: string) {
+	return {
+		error: "Not found",
+		message: `no ${type} with id '${id}'`,
+	};
+}
+
 // Check if body produces a 422 error
 // return error message or false
 export function SearchOfferingsValidationError(body: any) {

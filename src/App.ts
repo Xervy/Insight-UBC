@@ -48,6 +48,7 @@ import {
 	SearchFacilities,
 	ParseBuildings as ParseBuildings,
 	ParseRooms,
+	Generate404Error,
 } from "./Helpers";
 import { error } from "console";
 import { read, readdir } from "fs";
@@ -116,19 +117,18 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.send("App is running!");
 	});
 
-	async function readData(): Promise<Course[]> {
-		try {
-			const data = await fs.readFile(DATA_FILE, "utf-8");
-			const unfixedForDeprecated = JSON.parse(data) as Data;
-			return unfixedForDeprecated.course_offerings;
-		} catch {
-			return [];
-		}
-	}
+	// async function readData(): Promise<Course[]> {
+	// 	try {
+	// 		const data = await fs.readFile(DATA_FILE, "utf-8");
+	// 		const unfixedForDeprecated = JSON.parse(data) as Data;
+	// 		return unfixedForDeprecated.course_offerings;
+	// 	} catch {
+	// 		return [];
+	// 	}
+	// }
 
 	async function writeCoursesToData(courses: Course[]): Promise<void> {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
+		const data = await readWholeData();
 		const buildings = data.facilities;
 		const newData = {
 			course_offerings: courses,
@@ -141,9 +141,43 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		);
 	}
 
+	async function writeBuildingsToData(buildings: Building[]): Promise<void> {
+		const data = await readWholeData();
+		const courses = data.course_offerings;
+		const newData = {
+			course_offerings: courses,
+			facilities: buildings,
+		};
+		await fs.writeFile(
+			DATA_FILE,
+			JSON.stringify(newData, null, 2), // pretty format
+			"utf-8"
+		);
+	}
+
+
+	async function readWholeData(): Promise<Data> {
+		const file = await fs.readFile(DATA_FILE, "utf-8");
+		return JSON.parse(file) as Data;
+	}
+
+	type Kind = "course_offerings" | "facilities";
+
+	async function readPartOfData(kind: Kind): Promise<Course[] | Building[]> {
+		const data = await readWholeData();
+		switch (kind) {
+			case "course_offerings":
+				return data.course_offerings;
+			case "facilities":
+				return data.facilities;
+		}
+	}
+
+	
+
 	//Retrieve a list of courses
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
-		const data = await readData();
+		const data = await readPartOfData("course_offerings") as Course[];
 
 		const errorMessage = {
 			error: "Invalid request parameters",
@@ -175,16 +209,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	//Retrieve a course
 	app.get("/api/v1/courses/:course", async (req, res): Promise<void> => {
-		const data = await readData();
-		const id = req.params.course;
+		const data = await readPartOfData("course_offerings") as Course[];;
+		const courseID = req.params.course;
 
-		const course = data.find((c) => c.id === id);
+		const course = data.find((c) => c.id === courseID);
 
 		if (!course) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no course with id '${id}'`,
-			});
+			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
 
@@ -194,8 +225,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			dept: course.dept,
 			code: course.code,
 			links: {
-				self: `/api/v1/courses/${id}`,
-				sections: `/api/v1/courses/${id}/sections`,
+				self: `/api/v1/courses/${courseID}`,
+				sections: `/api/v1/courses/${courseID}/sections`,
 			},
 		});
 	});
@@ -203,7 +234,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	//Create or replace a course
 
 	app.put("/api/v1/courses/:course", async (req, res): Promise<void> => {
-		const id = req.params.course;
+		const courseID = req.params.course;
 		const body = req.body;
 
 		const errorRes = CourseCreateError(body);
@@ -212,14 +243,14 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const data: Course[] = await readData();
+		const data = await readPartOfData("course_offerings") as Course[];;
 		// const newCourse: Course = { id, title, dept, code, sections };
 
-		const alreadyExists = data.find((crs) => crs.id == id);
+		const alreadyExists = data.find((crs) => crs.id == courseID);
 
 		if (!alreadyExists) {
 			let courseToPush = {
-				id: id,
+				id: courseID,
 				title: body.title,
 				dept: body.dept,
 				code: body.code,
@@ -242,15 +273,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	//Remove a course
 	app.delete("/api/v1/courses/:course", async (req, res): Promise<void> => {
-		const data = await readData();
-		const id = req.params.course;
-		const index = data.findIndex((c) => c.id === id);
+		const data = await readPartOfData("course_offerings") as Course[];;
+		const courseID = req.params.course;
+		const index = data.findIndex((c) => c.id === courseID);
 
 		if (index === -1) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no course with id '${id}'`,
-			});
+			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
 		const courseDelete = data[index];
@@ -267,16 +295,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	//Retrieve a list of sections for a course
 	app.get("/api/v1/courses/:course/sections", async (req, res): Promise<void> => {
-		const data: Course[] = await readData();
-		const id = req.params.course;
+		const data = await readPartOfData("course_offerings") as Course[];;
+		const courseID = req.params.course;
 
-		const course = data.find((c) => c.id === id);
+		const course = data.find((c) => c.id === courseID);
 
 		if (!course) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no course with id '${id}'`,
-			});
+			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
 
@@ -314,28 +339,22 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	// Retrieve a section for a course
 	app.get("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
-		const data: Course[] = await readData();
-		const courseId = req.params.course;
-		const sectionId = req.params.section;
+		const data = await readPartOfData("course_offerings") as Course[];;
+		const courseID = req.params.course;
+		const sectionID = req.params.section;
 
-		const course = data.find((c) => c.id === courseId);
+		const course = data.find((c) => c.id === courseID);
 
 		if (!course) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no course with id '${courseId}'`,
-			});
+			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
 
 		const sections: Section[] = Array.isArray(course.sections) ? course.sections : [];
-		const section = sections.find((s) => String(s.id) === sectionId);
+		const section = sections.find((s) => String(s.id) === sectionID);
 
 		if (!section) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no section with id '${sectionId}'`,
-			});
+			res.status(404).json(Generate404Error("section", sectionID));
 			return;
 		}
 
@@ -348,25 +367,22 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			fail: section.fail,
 			audit: section.audit,
 			links: {
-				self: `/api/v1/courses/${courseId}/sections/${sectionId}`,
-				course: `/api/v1/courses/${courseId}`,
+				self: `/api/v1/courses/${courseID}/sections/${sectionID}`,
+				course: `/api/v1/courses/${courseID}`,
 			},
 		});
 	});
 
 	//Create or replace a section for a course
 	app.put("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
-		const data: Course[] = await readData();
-		const courseId = req.params.course;
+		const data = await readPartOfData("course_offerings") as Course[];
+		const courseID = req.params.course;
 		const sectionId = req.params.section;
-		const course = data.find((c) => c.id === courseId);
+		const course = data.find((c) => c.id === courseID);
 		const body = req.body;
 
 		if (!course) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no course with id '${courseId}'`,
-			});
+			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
 		if (!Array.isArray(course.sections)) course.sections = [];
@@ -409,26 +425,20 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	//Remove a section from a course
 	app.delete("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
-		const data: Course[] = await readData();
-		const courseId = req.params.course;
-		const sectionId = req.params.section;
+		const data = await readPartOfData("course_offerings") as Course[];
+		const courseID = req.params.course;
+		const sectionID = req.params.section;
 
-		const course = data.find((c) => String(c.id) === courseId);
+		const course = data.find((c) => String(c.id) === courseID);
 		if (!course || !Array.isArray(course.sections)) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no course with id '${courseId}'`,
-			});
+			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
 
-		const index = course.sections.findIndex((s) => String(s.id) === sectionId);
+		const index = course.sections.findIndex((s) => String(s.id) === sectionID);
 
 		if (index === -1) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no section with id '${sectionId}'`,
-			});
+			res.status(404).json(Generate404Error("section", sectionID));
 			return;
 		}
 		const sectionDelete = course.sections[index];
@@ -439,14 +449,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 	app.get("/api/v1/datasets/:dataset", async (req, res) => {
 		const datasetID = req.params.dataset;
-		let found = false;
 		const foundUpload = bulkUploads.find((upload) => upload.id == datasetID);
 
 		if (!foundUpload) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no dataset with id '${datasetID}'`,
-			});
+			res.status(404).json(Generate404Error("dataset", datasetID));
 			return;
 		}
 		res.status(200).json(foundUpload);
@@ -508,7 +514,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			message: "Dataset accepted for processing",
 		});
 
-		const courses = await readData();
+		const courses = await readPartOfData("course_offerings") as Course[];
 
 		// The file will be available as req.file
 		// The zip content is in req.file.buffer
@@ -537,31 +543,31 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			(file) => file.name.startsWith("courses/") && file.name !== "courses/" && !file.dir
 		);
 
-		let ft = 0; // files total
-		let fp = 0; // files processed
-		let fs = 0; // files skipped
-		let cs = 0; // courses seen
-		let ca = 0; // courses added
-		let cm = 0; // courses modified
-		let ss = 0; // sections seen
-		let sa = 0; // added
-		let sm = 0; // modified
+		let files_total = 0; // files total
+		let files_processed = 0; // files processed
+		let files_skipped = 0; // files skipped
+		let courses_seen = 0; // courses seen
+		let courses_added = 0; // courses added
+		let courses_modified = 0; // courses modified
+		let sections_seen = 0; // sections seen
+		let sections_added = 0; // added
+		let sections_modifed = 0; // modified
 		for (const file of coursesFiles) {
 			const fileContent = await file.async("string");
-			ft += 1;
+			files_total += 1;
 			let parsedFile;
 			try {
 				parsedFile = JSON.parse(fileContent);
 
 				if (!parsedFile.result || !Array.isArray(parsedFile.result)) {
-					fs += 1;
+					files_skipped += 1;
 					continue;
 				}
 			} catch {
-				fs += 1;
+				files_skipped += 1;
 				continue; // YAY OR NAY?
 			}
-			fp += 1;
+			files_processed += 1;
 			// JSON needs to have parameter 'result' which must be an array
 
 			// record is each offering object in result
@@ -641,7 +647,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 								fail: record.Fail,
 								audit: record.Audit,
 							});
-							sa += 1;
+							sections_added += 1;
 						} else {
 							alreadyHasSection.instructor = record.Professor;
 							if (record.Section == "overall") {
@@ -654,10 +660,10 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							alreadyHasSection.fail = record.Fail;
 							alreadyHasSection.audit = record.Audit;
 
-							sm += 1;
+							sections_modifed += 1;
 						}
 
-						cm += 1;
+						courses_modified += 1;
 						sectionWasAdded = true;
 					}
 				}
@@ -680,242 +686,33 @@ export async function createApp(config: AppConfig): Promise<Application> {
 							},
 						],
 					});
-					ca += 1;
-					sa += 1;
+					courses_added += 1;
+					sections_added += 1;
 				}
 			}
 		}
-		cs = ca + cm;
-		ss = sa + sm;
+		courses_seen = courses_added + courses_modified;
+		sections_seen = sections_added + sections_modifed;
 		// Write Json to file
 		await writeCoursesToData(courses);
 		stats.status = "completed";
 		stats.stats = {
-			files_total: ft,
-			files_processed: fp,
-			files_skipped: fs,
-			courses_seen: cs,
-			courses_added: ca,
-			courses_modified: cm,
-			sections_seen: ss,
-			sections_added: sa,
-			sections_modified: sm,
+			files_total: files_total,
+			files_processed: files_processed,
+			files_skipped: files_skipped,
+			courses_seen: courses_seen,
+			courses_added: courses_added,
+			courses_modified: courses_modified,
+			sections_seen: sections_seen,
+			sections_added: sections_added,
+			sections_modified: sections_modifed,
 		};
 		stats.message = "Dataset processing complete";
 	});
 
-	/*
-	async function processDataset(dataId: string, zipBuffer: Buffer): Promise<void> {
-		const datas = await readUploads();
-		const data = datas.find((j) => j.id === dataId);
-		if (!data) return;
-
-		const stats = {
-			files_total: 0,
-			files_processed: 0,
-			files_skipped: 0,
-			courses_seen: 0,
-			courses_added: 0,
-			courses_modified: 0,
-			sections_seen: 0,
-			sections_added: 0,
-			sections_modified: 0,
-		}; //ChatGPT
-
-		let zip: JSZip;
-		try {
-			zip = await JSZip().loadAsync(zipBuffer);
-		} catch {
-			data.status = "failed";
-			data.stats = stats;
-			await writeUpload(datas);
-			return;
-		} //ChatGPT
-
-		const checkRoot = Object.keys(zip.files).some((name) => name.startsWith("courses/")); //ChatGPT
-		if (!checkRoot) {
-			data.status = "failed";
-			data.stats = stats;
-			await writeUpload(datas);
-			return;
-		}
-
-		const courseName = Object.keys(zip.files).filter(
-			(name) => name.startsWith("courses/") && !zip.files[name].dir && name.toLowerCase().endsWith(".json")
-		);
-		const offerings: Offering[] = [];
-		stats.files_total = courseName.length;
-
-		for (const name of courseName) {
-			try {
-				const text = await zip.files[name].async("string");
-				const parsed = JSON.parse(text);
-				if (!Array.isArray(parsed.result || !parsed)) {
-					stats.files_skipped = stats.files_skipped + 1;
-					continue;
-				}
-				stats.files_processed = stats.files_processed + 1;
-				for (const result of parsed.result) {
-					const offer = courseOffering(result);
-					if (offer) offerings.push(offer);
-				}
-			} catch {
-				stats.files_skipped = stats.files_skipped + 1;
-			}
-		}
-		const courseData = await readData();
-		const courseMap = new Map<string, Course>();
-		for (const course of courseData) {
-			courseMap.set(course.id, course);
-		}
-
-		for (const offer of offerings) {
-			stats.courses_seen = stats.courses_seen + 1;
-			const courseId = `${offer.Subject}${offer.Course}`; //ChatGPT
-			const current = courseMap.get(courseId);
-
-			if (!current) {
-				const newCourse: Course = {
-					id: courseId,
-					code: offer.Course,
-					dept: offer.Subject,
-					title: offer.Title,
-					sections: [],
-				};
-				courseMap.set(courseId, newCourse);
-				courseData.push(newCourse);
-				stats.courses_added = stats.courses_added + 1;
-			} else {
-				let updated = false;
-				if (current.code != offer.Course) {
-					current.code = offer.Course;
-					updated = true;
-				}
-
-				if (current.dept != offer.Subject) {
-					current.dept = offer.Subject;
-					updated = true;
-				}
-
-
-	// 	const checkRoot = Object.keys(zip.files).some((name) => name.startsWith("courses/")); //ChatGPT
-	// 	if (!checkRoot) {
-	// 		data.status = "failed";
-	// 		data.stats = stats;
-	// 		await writeUpload(datas);
-	// 		return;
-	// 	}
-
-	// 	const courseName = Object.keys(zip.files).filter(
-	// 		(name) => name.startsWith("courses/") && !zip.files[name].dir && name.toLowerCase().endsWith(".json")
-	// 	);
-	// 	const offerings: Offering[] = [];
-	// 	stats.files_total = courseName.length;
-
-	// 	for (const name of courseName) {
-	// 		try {
-	// 			const text = await zip.files[name].async("string");
-	// 			const parsed = JSON.parse(text);
-	// 			if (!Array.isArray(parsed.result || !parsed)) {
-	// 				stats.files_skipped = stats.files_skipped + 1;
-	// 				continue;
-	// 			}
-	// 			stats.files_processed = stats.files_processed + 1;
-	// 			for (const result of parsed.result) {
-	// 				const offer = courseOffering(result);
-	// 				if (offer) offerings.push(offer);
-	// 			}
-	// 		} catch {
-	// 			stats.files_skipped = stats.files_skipped + 1;
-	// 		}
-	// 	}
-	// 	const courseData = await readData();
-	// 	const courseMap = new Map<string, Course>();
-	// 	for (const course of courseData) {
-	// 		courseMap.set(course.id, course);
-	// 	}
-
-	// 	for (const offer of offerings) {
-	// 		stats.courses_seen = stats.courses_seen + 1;
-	// 		const courseId = `${offer.Subject}${offer.Course}`; //ChatGPT
-	// 		const current = courseMap.get(courseId);
-
-	// 		if (!current) {
-	// 			const newCourse: Course = {
-	// 				id: courseId,
-	// 				code: offer.Course,
-	// 				dept: offer.Subject,
-	// 				title: offer.Title,
-	// 				sections: [],
-	// 			};
-	// 			courseMap.set(courseId, newCourse);
-	// 			courseData.push(newCourse);
-	// 			stats.courses_added = stats.courses_added + 1;
-	// 		} else {
-	// 			let updated = false;
-	// 			if (current.code != offer.Course) {
-	// 				current.code = offer.Course;
-	// 				updated = true;
-	// 			}
-
-	// 			if (current.dept != offer.Subject) {
-	// 				current.dept = offer.Subject;
-	// 				updated = true;
-	// 			}
-
-	// 			if (current.title != offer.Title) {
-	// 				current.title = offer.Title;
-	// 				updated = true;
-	// 			}
-
-	// 			if (updated) stats.courses_modified = stats.courses_modified + 1;
-	// 			if (!Array.isArray(current.sections)) current.sections = [];
-	// 		}
-	// 	}
-
-	// 	for (const offer of offerings) {
-	// 		stats.courses_seen = stats.courses_seen + 1;
-	// 		const courseId = `${offer.Subject}${offer.Course}`;
-	// 		const course = courseMap.get(courseId);
-	// 		if (!course) continue;
-	// 		if (!Array.isArray(course.sections)) course.sections = [];
-	// 		const secId = String(offer.id);
-	// 		const currSecId = course.sections.findIndex((s) => s.id === secId);
-	// 		const newSection: Section = {
-	// 			id: secId,
-	// 			instructor: offer.Professor,
-	// 			year: Number.isFinite(Number.parseInt(offer.Year, 10)) ? Number.parseInt(offer.Year, 10) : 1900,
-	// 			avg: offer.Avg,
-	// 			pass: offer.Pass,
-	// 			fail: offer.Fail,
-	// 			audit: offer.Audit,
-	// 		};
-	// 		if (currSecId === -1) {
-	// 			course.sections.push(newSection);
-	// 			stats.sections_added = stats.sections_added + 1;
-	// 		} else {
-	// 			const current = course.sections[currSecId];
-	// 			const updated =
-	// 				current.instructor !== newSection.instructor ||
-	// 				current.year !== newSection.year ||
-	// 				current.avg !== newSection.avg ||
-	// 				current.pass !== newSection.pass ||
-	// 				current.fail !== newSection.fail ||
-	// 				current.audit !== newSection.audit;
-	// 			if (updated) {
-	// 				course.sections[currSecId] = newSection;
-	// 				stats.sections_modified = stats.sections_modified + 1;
-	// 			}
-	// 		}
-	// 	}
-	// 	await writeData(courseData);
-
-
-		await writeUpload(datas);
-	}*/
-
+	
 	app.post("/api/v1/search", async (req, res) => {
-		const data = await readData();
+		const data = await readPartOfData("course_offerings") as Course[];
 		const body = req.body as SearchRequestBody;
 
 		// SC 422
@@ -1009,9 +806,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings", async (req, res) => {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const buildings = await readPartOfData("facilities") as Building[];
 
 		let limit = parseInt((req.query.limit as string) ?? 100);
 		let offset = parseInt((req.query.offset as string) ?? 0);
@@ -1025,32 +820,26 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		const buildingsWithLinks = UpdateListOfBuildingsLinks(buildings);
 
-		const sort = [...buildings].sort((a, b) => a.id.localeCompare(b.id));
+		const sort = [...buildingsWithLinks].sort((a, b) => a.id.localeCompare(b.id));
 		let items = sort.slice(offset, offset + limit);
 
 		res.status(200).json({
 			total: buildings.length,
 			limit,
 			offset,
-			items: buildingsWithLinks,
+			items: items,
 		});
 	});
 
 	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const buildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
-
 		const building = buildings.find((b) => b.id == buildingID);
 
 		// SC 404
 		if (!building) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no building with id '${buildingID}'`,
-			});
+			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 		res.status(200).json(UpdateBuildingLink(building));
@@ -1106,10 +895,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		const buildingExists = buildings.find((b) => b.id == buildingID);
 
 		if (!buildingExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no building with id '${buildingID}'`,
-			});
+			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 		const buildingsAfterDelete = buildings.filter((b) => !(b.id == buildingID));
@@ -1132,18 +918,13 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const buildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
 
 		const buildingExists = buildings.find((b) => b.id == buildingID);
 		if (!buildingExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no building with id '${buildingID}'`,
-			});
+			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 
@@ -1165,9 +946,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const buildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
 		const buildingExists = buildings.find((b) => b.id == buildingID);
@@ -1205,9 +984,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const buildings = await readPartOfData("facilities") as Building[];
 
 		// SC 404
 		const buildingExists = buildings.find((b) => b.id == buildingID);
@@ -1229,7 +1006,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			roomExists.furniture = body.furniture;
 			roomExists.href = body.href;
 			roomExists.seats = body.seats;
-			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			await writeBuildingsToData(buildings);
 			res.status(204).send();
 			return;
 		}
@@ -1244,14 +1021,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			seats: body.seats,
 		};
 		rooms.push(makeRoom);
-		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		await writeBuildingsToData(buildings);
 		res.status(201).json(UpdateRoomLink(makeRoom, buildingExists));
 	});
 
 	app.delete("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const buildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
 		const roomID = req.params.roomID;
@@ -1277,7 +1052,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		const roomsAfterDelete = rooms.filter((r) => !(r.id == roomID));
 		buildingExists.rooms = roomsAfterDelete;
-		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		await writeBuildingsToData(buildings);
 		res.status(200).json(roomExists);
 	});
 
@@ -1340,7 +1115,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				message: "Dataset accepted for processing",
 			});
 
-			const OfferingsInData = await readData();
+			const OfferingsInData = await readPartOfData("course_offerings") as Course[];
 
 			// The file will be available as req.file
 			// The zip content is in req.file.buffer
@@ -1537,9 +1312,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				message: "Dataset accepted for processing",
 			});
 
-			const file = await fs.readFile(DATA_FILE, "utf-8");
-			const data = JSON.parse(file) as Data;
-			const buildings = data.facilities;
+			const buildingsinData = await readPartOfData("facilities") as Building[];
 
 			// Check for Valid Zip File
 			const zipBuffer = req.file!.buffer;
@@ -1612,7 +1385,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			// let ra = 0;
 			// let rm = 0;
 			for (const bld of fullBuiltBuildings) {
-				const foundBuilding = buildings.find((build) => build.id == bld.id);
+				const foundBuilding = buildingsinData.find((build) => build.id == bld.id);
 				if (foundBuilding) {
 					foundBuilding.id = bld.id;
 					foundBuilding.name = bld.name;
@@ -1622,11 +1395,11 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					foundBuilding.rooms = bld.rooms;
 					// bm += 1;
 				} else {
-					buildings.push(bld);
+					buildingsinData.push(bld);
 					ba += 1;
 				}
 			}
-			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			await writeBuildingsToData(buildingsinData);
 			statObject.status = "completed";
 			statObject.message = "Dataset processing complete";
 			statObject.stats.buildings_added = ba;
@@ -1756,11 +1529,9 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			}
 		}
 
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
 
 		if (body.kind == "course_offerings") {
-			const courses = data.course_offerings;
+			const courses = await readPartOfData("course_offerings") as Course[];
 
 			let columnedCourses = [];
 			try {
@@ -1839,7 +1610,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				return;
 			}
 		} else if (body.kind == "facilities") {
-			const buildings = data.facilities;
+			const buildings = await readPartOfData("facilities") as Building[];
 
 			let columnedBuildings = [];
 			try {
