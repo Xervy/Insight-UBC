@@ -169,9 +169,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	}
 
-
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];
+		const data = (await readPartOfData("course_offerings")) as Course[];
 
 		const errorMessage = {
 			error: "Invalid request parameters",
@@ -202,7 +201,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v1/courses/:course", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];;
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const courseID = req.params.course;
 
 		const course = data.find((c) => c.id === courseID);
@@ -234,7 +233,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const data = await readPartOfData("course_offerings") as Course[];
+		const data = (await readPartOfData("course_offerings")) as Course[];
 
 		const alreadyExists = data.find((crs) => crs.id == courseID);
 
@@ -261,7 +260,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.delete("/api/v1/courses/:course", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];;
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const courseID = req.params.course;
 		const index = data.findIndex((c) => c.id === courseID);
 
@@ -282,7 +281,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v1/courses/:course/sections", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];;
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const courseID = req.params.course;
 
 		const course = data.find((c) => c.id === courseID);
@@ -319,7 +318,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];;
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const courseID = req.params.course;
 		const sectionID = req.params.section;
 
@@ -354,7 +353,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.put("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const courseID = req.params.course;
 		const sectionID = req.params.section;
 		const course = data.find((c) => c.id === courseID);
@@ -403,7 +402,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.delete("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
-		const data = await readPartOfData("course_offerings") as Course[];
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const courseID = req.params.course;
 		const sectionID = req.params.section;
 
@@ -492,7 +491,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			message: "Dataset accepted for processing",
 		});
 
-		const courses = await readPartOfData("course_offerings") as Course[];
+		const courses = (await readPartOfData("course_offerings")) as Course[];
 
 		// The file will be available as req.file
 		// The zip content is in req.file.buffer
@@ -658,9 +657,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.message = "Dataset processing complete";
 	});
 
-
 	app.post("/api/v1/search", async (req, res) => {
-		const data = await readPartOfData("course_offerings") as Course[];
+		const data = (await readPartOfData("course_offerings")) as Course[];
 		const body = req.body as SearchRequestBody;
 
 		// SC 422
@@ -754,7 +752,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings", async (req, res) => {
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		let limit = parseInt((req.query.limit as string) ?? 100);
 		let offset = parseInt((req.query.offset as string) ?? 0);
@@ -780,7 +778,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		const buildingID = req.params.buildingID;
 		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
@@ -802,7 +800,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		const buildingID = req.params.buildingID;
 
@@ -833,7 +831,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.delete("/api/v2/buildings/:buildingID", async (req, res) => {
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		const buildingID = req.params.buildingID;
 		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
@@ -849,7 +847,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			rooms: rooms.length,
 			...rest,
 		});
-	});	
+	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
 		let limit = parseInt((req.query.limit as string) ?? 100);
@@ -861,7 +859,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 		const buildingID = req.params.buildingID;
 
 		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
@@ -880,7 +878,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		const buildingID = req.params.buildingID;
 		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
@@ -911,7 +909,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		// SC 404
 		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
@@ -951,7 +949,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.delete("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
-		const allBuildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = (await readPartOfData("facilities")) as Building[];
 
 		const buildingID = req.params.buildingID;
 		const roomID = req.params.roomID;
@@ -974,8 +972,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		await writeBuildingsToData(allBuildings);
 		res.status(200).json(foundRoom);
 	});
-
-
 
 	app.post("/api/v2/datasets", upload.single("archive"), async (req, res) => {
 		// SC 422
@@ -1017,7 +1013,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				message: "Dataset accepted for processing",
 			});
 
-
 			// The file will be available as req.file
 			// The zip content is in req.file.buffer
 			const zipBuffer = req.file!.buffer;
@@ -1040,8 +1035,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				(file) => file.name.startsWith("courses/") && file.name !== "courses/" && !file.dir
 			);
 
-
-			const OfferingsInData = await readPartOfData("course_offerings") as Course[];
+			const OfferingsInData = (await readPartOfData("course_offerings")) as Course[];
 
 			const offeringUpload = await BulkUploadOfferings(coursesFiles, OfferingsInData);
 			const updatedOfferingsForData = offeringUpload.OfferingsInData;
@@ -1074,7 +1068,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				message: "Dataset accepted for processing",
 			});
 
-			const buildingsinData = await readPartOfData("facilities") as Building[];
+			const buildingsinData = (await readPartOfData("facilities")) as Building[];
 
 			// Check for Valid Zip File
 			const zipBuffer = req.file!.buffer;
@@ -1291,9 +1285,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			}
 		}
 
-
 		if (body.kind == "course_offerings") {
-			const courses = await readPartOfData("course_offerings") as Course[];
+			const courses = (await readPartOfData("course_offerings")) as Course[];
 
 			let columnedCourses = [];
 			try {
@@ -1372,7 +1365,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				return;
 			}
 		} else if (body.kind == "facilities") {
-			const buildings = await readPartOfData("facilities") as Building[];
+			const buildings = (await readPartOfData("facilities")) as Building[];
 
 			let columnedBuildings = [];
 			try {

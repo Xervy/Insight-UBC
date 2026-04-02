@@ -2957,9 +2957,7 @@ describe("REST API v1", function () {
 			});
 		});
 
-		it("POST /api/v2/datasets - Expected: 202", async () => {
-
-		});
+		it("POST /api/v2/datasets - Expected: 202", async () => {});
 	});
 
 	describe("GET Datasets v2", async function () {
@@ -3119,7 +3117,6 @@ describe("REST API v1", function () {
 				message: "Missing WHERE",
 			});
 		});
-
 
 		it("POST /api/v2/search - Expected: 400 -  Missing COLUMNS key", async () => {
 			const res = await request(app)

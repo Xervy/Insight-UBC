@@ -1104,21 +1104,31 @@ export async function IsZipValid(zipBuffer: Buffer<ArrayBufferLike>): Promise<JS
 
 export function IsRecordValid(record: any): boolean {
 	if (
-		record.id === undefined || record.Course === undefined ||
-		record.Title === undefined || record.Professor === undefined ||
-		record.Subject === undefined || record.Section === undefined ||
-		record.Year === undefined || record.Avg === undefined ||
-		record.Pass === undefined || record.Fail === undefined ||
+		record.id === undefined ||
+		record.Course === undefined ||
+		record.Title === undefined ||
+		record.Professor === undefined ||
+		record.Subject === undefined ||
+		record.Section === undefined ||
+		record.Year === undefined ||
+		record.Avg === undefined ||
+		record.Pass === undefined ||
+		record.Fail === undefined ||
 		record.Audit === undefined
 	) {
 		return false;
 	} else if (
 		!(
-			typeof record.id === "number" && typeof record.Course === "string" &&
-			typeof record.Title === "string" && typeof record.Professor === "string" &&
-			typeof record.Subject === "string" && typeof record.Section === "string" &&
-			typeof record.Year === "string" && typeof record.Avg === "number" &&
-			typeof record.Pass === "number" && typeof record.Fail === "number" &&
+			typeof record.id === "number" &&
+			typeof record.Course === "string" &&
+			typeof record.Title === "string" &&
+			typeof record.Professor === "string" &&
+			typeof record.Subject === "string" &&
+			typeof record.Section === "string" &&
+			typeof record.Year === "string" &&
+			typeof record.Avg === "number" &&
+			typeof record.Pass === "number" &&
+			typeof record.Fail === "number" &&
 			typeof record.Audit === "number"
 		)
 	) {
@@ -1253,7 +1263,7 @@ export async function BulkUploadOfferings(coursesFiles: JSZip.JSZipObject[], Off
 	stats.courses_seen = stats.courses_added + stats.courses_modified;
 	stats.sections_seen = stats.sections_added + stats.sections_modified;
 	// Write Json to file
-	const objectToSend = {OfferingsInData, stats};
+	const objectToSend = { OfferingsInData, stats };
 	return objectToSend;
 	// await writeCoursesToData(OfferingsInData);
 	// statObject.status = "completed";
