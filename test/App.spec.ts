@@ -2159,6 +2159,41 @@ describe("REST API v1", function () {
 					rooms: "/api/v2/buildings/DMP/rooms",
 				},
 			});
+
+			const check = await request(app).get("/api/v2/buildings/DMP");
+			expect(check).to.have.property("status", OK);
+			expect(check).to.have.deep.property("body", {
+				id: "DMP",
+				name: "Hugh Dempster Pavilion",
+				address: "6245 Agronomy Road V6T 1Z4",
+				lat: 49.26125,
+				lon: -123.24807,
+				links: {
+					self: "/api/v2/buildings/DMP",
+					rooms: "/api/v2/buildings/DMP/rooms",
+				},
+			});
+
+			const check2 = await request(app).get("/api/v2/buildings");
+			expect(check2).to.have.property("status", OK);
+			expect(check2).to.have.deep.property("body", {
+				total: 1,
+				limit: 100,
+				offset: 0,
+				items: [
+					{
+						id: "DMP",
+						name: "Hugh Dempster Pavilion",
+						address: "6245 Agronomy Road V6T 1Z4",
+						lat: 49.26125,
+						lon: -123.24807,
+						links: {
+							self: "/api/v2/buildings/DMP",
+							rooms: "/api/v2/buildings/DMP/rooms",
+						},
+					},
+				],
+			});
 		});
 
 		it("PUT /api/v2/buildings/{builing} - Expected: 204 - update building", async () => {

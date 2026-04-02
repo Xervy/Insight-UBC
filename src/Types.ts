@@ -211,3 +211,9 @@ export class SearchEBNFError extends Error {
 		super(msg);
 	}
 }
+
+export class NotFoundError extends Error {
+	constructor(msg: string) {
+		super(msg);
+	}
+}

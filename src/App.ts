@@ -60,10 +60,7 @@ import { error } from "console";
 import { read, readdir } from "fs";
 import { off } from "process";
 import { RetrieveAllQueryError } from "./utils/validation";
-import {
-	initFileStore, readPartOfData, writeBuildingsToData,
-	writeCoursesToData
-} from "./storage/fileStore";
+import { initFileStore, readPartOfData, writeBuildingsToData, writeCoursesToData } from "./storage/fileStore";
 
 import buildingRoutes from "./routes/buildingRoutes";
 
@@ -757,104 +754,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.status(400).json(EBNFError((e as SearchEBNFError).message));
 		}
 	});
-	app.use("/", buildingRoutes);
-	// app.get("/api/v2/buildings", async (req, res) => {
-	// 	const allBuildings = (await readPartOfData("facilities")) as Building[];
-
-	// 	let limit = parseInt((req.query.limit as string) ?? 100);
-	// 	let offset = parseInt((req.query.offset as string) ?? 0);
-
-	// 	// SC 400
-	// 	const queryErrorMessage = RetrieveAllQueryError(limit, offset);
-	// 	if (!(typeof queryErrorMessage == "boolean")) {
-	// 		res.status(400).json(queryErrorMessage);
-	// 		return;
-	// 	}
-
-	// 	const buildingsWithLinks = UpdateListOfBuildingsLinks(allBuildings);
-
-	// 	buildingsWithLinks.sort((a, b) => a.id.localeCompare(b.id));
-	// 	let items = buildingsWithLinks.slice(offset, offset + limit);
-
-	// 	res.status(200).json({
-	// 		total: allBuildings.length,
-	// 		limit,
-	// 		offset,
-	// 		items: items,
-	// 	});
-	// });
-
-	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
-		const allBuildings = (await readPartOfData("facilities")) as Building[];
-
-		const buildingID = req.params.buildingID;
-		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
-
-		// SC 404
-		if (!foundBuilding) {
-			res.status(404).json(Generate404Error("building", buildingID));
-			return;
-		}
-		res.status(200).json(UpdateBuildingLink(foundBuilding));
-	});
-
-	app.put("/api/v2/buildings/:buildingID", async (req, res) => {
-		const body = req.body;
-		// SC 422
-		const errorMessage = BuildingCreateError(body);
-		if (!(typeof errorMessage === "boolean")) {
-			res.status(422).json(errorMessage);
-			return;
-		}
-
-		const allBuildings = (await readPartOfData("facilities")) as Building[];
-
-		const buildingID = req.params.buildingID;
-
-		// SC 204
-		const alreadyExists = allBuildings.find((b) => b.id == buildingID);
-		if (alreadyExists) {
-			alreadyExists.name = body.name;
-			alreadyExists.address = body.address;
-			alreadyExists.lat = body.lat;
-			alreadyExists.lon = body.lon;
-			alreadyExists.rooms = [];
-			await writeBuildingsToData(allBuildings);
-			res.status(204).send();
-			return;
-		}
-		// SC 201
-		const makeBuilding = {
-			id: buildingID,
-			name: body.name,
-			address: body.address,
-			lat: body.lat,
-			lon: body.lon,
-			rooms: [],
-		};
-		allBuildings.push(makeBuilding);
-		await writeBuildingsToData(allBuildings);
-		res.status(201).json(UpdateBuildingLink(makeBuilding));
-	});
-
-	app.delete("/api/v2/buildings/:buildingID", async (req, res) => {
-		const allBuildings = (await readPartOfData("facilities")) as Building[];
-
-		const buildingID = req.params.buildingID;
-		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
-
-		if (!foundBuilding) {
-			res.status(404).json(Generate404Error("building", buildingID));
-			return;
-		}
-		const allBuildingsUpdated = allBuildings.filter((b) => !(b.id == buildingID));
-		await writeBuildingsToData(allBuildingsUpdated);
-		const { rooms, ...rest } = foundBuilding;
-		res.status(200).json({
-			rooms: rooms.length,
-			...rest,
-		});
-	});
+	app.use("/api/", buildingRoutes);
 
 	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
 		let limit = parseInt((req.query.limit as string) ?? 100);
