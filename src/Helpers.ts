@@ -20,6 +20,7 @@ import {
 	UploadFacilityStats,
 } from "./Types";
 import { off } from "process";
+import JSZip from "jszip";
 
 // Takes the list of courses, and returns the list of courses
 // where the courses have links to themselves and their sections
@@ -216,6 +217,16 @@ export function EBNFError(message: string) {
 		message: message,
 	};
 	return errorMes;
+}
+
+// Formats Error Message for SC 404 and returns it
+// Needs building/course/section/room/dataset as type
+// the relative id
+export function Generate404Error(type: string, id: string) {
+	return {
+		error: "Not found",
+		message: `no ${type} with id '${id}'`,
+	};
 }
 
 // Check if body produces a 422 error
@@ -1005,4 +1016,255 @@ export function ParseRooms(htmlContent: string, statObject: UploadFacilityStats)
 	}
 
 	return rooms;
+}
+
+export function MatchListLengthToLimit(list: any[], limit: number): any[] {
+	if (list.length > limit) {
+		return list.slice(0, limit);
+	} else {
+		return list;
+	}
+}
+
+export function IsOfferingValid(record: any): Boolean {
+	if (
+		record.id === undefined ||
+		record.Course === undefined ||
+		record.Title === undefined ||
+		record.Professor === undefined ||
+		record.Subject === undefined ||
+		record.Section === undefined ||
+		record.Year === undefined ||
+		record.Avg === undefined ||
+		record.Pass === undefined ||
+		record.Fail === undefined ||
+		record.Audit === undefined
+	) {
+		return false;
+	} else if (
+		!(
+			typeof record.id === "number" &&
+			typeof record.Course == "string" &&
+			typeof record.Title == "string" &&
+			typeof record.Professor == "string" &&
+			typeof record.Subject == "string" &&
+			typeof record.Section == "string" &&
+			typeof record.Year == "string" &&
+			typeof record.Avg == "number" &&
+			typeof record.Pass == "number" &&
+			typeof record.Fail == "number" &&
+			typeof record.Audit == "number"
+		)
+	) {
+		return false;
+	}
+	return true;
+}
+
+export function DatasetValidation(req: any) {
+	let isError = false;
+	const errorMes = {
+		error: "Validation failed",
+		fields: {} as any,
+	};
+	if (!req.body || !req.body.kind) {
+		errorMes.fields["kind"] = "required but missing";
+		isError = true;
+	} else if (req.body.kind != "course_offerings" && req.body.kind != "facilities") {
+		errorMes.fields["kind"] = "expected to be course_offerings or facilities";
+		isError = true;
+	}
+	if (!req.file) {
+		errorMes.fields["archive"] = "required but missing";
+		isError = true;
+	} else if (req.file.size == 0) {
+		errorMes.fields["archive"] = "expected non-empty file";
+		isError = true;
+	}
+	if (isError) {
+		return errorMes;
+	}
+	return isError;
+}
+
+export async function IsZipValid(zipBuffer: Buffer<ArrayBufferLike>): Promise<JSZip> {
+	let zip;
+	try {
+		zip = await JSZip.loadAsync(zipBuffer);
+	} catch (e) {
+		throw new SearchEBNFError("Data is not in a valid zip format");
+	}
+
+	const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
+	if (!hasCoursesFolder) {
+		throw new SearchEBNFError("Missing root courses directory");
+	}
+	return zip;
+}
+
+export function IsRecordValid(record: any): boolean {
+	if (
+		record.id === undefined ||
+		record.Course === undefined ||
+		record.Title === undefined ||
+		record.Professor === undefined ||
+		record.Subject === undefined ||
+		record.Section === undefined ||
+		record.Year === undefined ||
+		record.Avg === undefined ||
+		record.Pass === undefined ||
+		record.Fail === undefined ||
+		record.Audit === undefined
+	) {
+		return false;
+	} else if (
+		!(
+			typeof record.id === "number" &&
+			typeof record.Course === "string" &&
+			typeof record.Title === "string" &&
+			typeof record.Professor === "string" &&
+			typeof record.Subject === "string" &&
+			typeof record.Section === "string" &&
+			typeof record.Year === "string" &&
+			typeof record.Avg === "number" &&
+			typeof record.Pass === "number" &&
+			typeof record.Fail === "number" &&
+			typeof record.Audit === "number"
+		)
+	) {
+		return false;
+	}
+	return true;
+}
+
+export async function BulkUploadOfferings(coursesFiles: JSZip.JSZipObject[], OfferingsInData: Course[]) {
+	const stats = {
+		files_total: 0,
+		files_processed: 0,
+		files_skipped: 0,
+		courses_seen: 0,
+		courses_added: 0,
+		courses_modified: 0,
+		sections_seen: 0,
+		sections_added: 0,
+		sections_modified: 0,
+	};
+	for (const file of coursesFiles) {
+		const fileContent = await file.async("string");
+		stats.files_total += 1;
+		let parsedFile;
+		try {
+			parsedFile = JSON.parse(fileContent);
+
+			if (!parsedFile.result || !Array.isArray(parsedFile.result)) {
+				stats.files_skipped += 1;
+				continue;
+			}
+		} catch {
+			stats.files_skipped += 1;
+			continue;
+		}
+		stats.files_processed += 1;
+		// JSON needs to have parameter 'result' which must be an array
+
+		// record is each offering object in result
+		for (const record of parsedFile.result) {
+			// Check Database if Course already Exists
+			// If So: Iterate through Sections to find if Section Exists, Determine if new Section or modify section
+			// If not: Push the new course to the database
+			const courseID = record.Subject + record.Course;
+			const sectionID = record.id;
+			let sectionWasAdded = false;
+
+			if (!IsRecordValid(record)) {
+				continue;
+			}
+
+			let sectionYear = Number(record.Year);
+			if (record.Section == "overall") {
+				sectionYear = 1900;
+			}
+
+			for (const course of OfferingsInData) {
+				if (course.id == courseID) {
+					// Make Updates
+					course.code = record.Course;
+					course.dept = record.Subject;
+					let mostRecent = true;
+
+					for (const section of course.sections) {
+						if (section.year >= sectionYear) {
+							mostRecent = false;
+							break;
+						}
+					}
+					if (mostRecent) {
+						course.title = record.Title;
+					}
+
+					// Check if Course already has Section
+					// If No, Push Section to Course
+					// If Yes, Update Section Parameters
+					const alreadyHasSection = course.sections.find((section) => section.id == record.id);
+					if (!alreadyHasSection) {
+						course.sections.push({
+							id: sectionID.toString(),
+							instructor: record.Professor,
+							year: sectionYear,
+							avg: record.Avg,
+							pass: record.Pass,
+							fail: record.Fail,
+							audit: record.Audit,
+						});
+						stats.sections_added += 1;
+					} else {
+						alreadyHasSection.instructor = record.Professor;
+						if (record.Section == "overall") {
+							alreadyHasSection.year = 1900;
+						} else {
+							alreadyHasSection.year = sectionYear;
+						}
+						alreadyHasSection.avg = record.Avg;
+						alreadyHasSection.pass = record.Pass;
+						alreadyHasSection.fail = record.Fail;
+						alreadyHasSection.audit = record.Audit;
+
+						stats.sections_modified += 1;
+					}
+
+					stats.courses_modified += 1;
+					sectionWasAdded = true;
+				}
+			}
+			// If the Course does not already exist, add it to jsonFile
+			if (!sectionWasAdded) {
+				OfferingsInData.push({
+					id: courseID,
+					title: record.Title,
+					dept: record.Subject,
+					code: record.Course,
+					sections: [
+						{
+							id: sectionID.toString(),
+							instructor: record.Professor,
+							year: sectionYear,
+							avg: record.Avg,
+							pass: record.Pass,
+							fail: record.Fail,
+							audit: record.Audit,
+						},
+					],
+				});
+				stats.courses_added += 1;
+				stats.sections_added += 1;
+			}
+		}
+	}
+	stats.courses_seen = stats.courses_added + stats.courses_modified;
+	stats.sections_seen = stats.sections_added + stats.sections_modified;
+	// Write Json to file
+	const objectToSend = { OfferingsInData, stats };
+	return objectToSend;
+	// await writeCoursesToData(OfferingsInData);
+	// statObject.status = "completed";
 }
