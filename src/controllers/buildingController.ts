@@ -42,20 +42,10 @@ export async function putBuilding(req: Request, res: Response) {
 }
 
 export async function deleteBuilding(req: Request, res: Response) {
-    const allBuildings = (await readPartOfData("facilities")) as Building[];
-
-    const buildingID = req.params.buildingID;
-    const foundBuilding = allBuildings.find((b) => b.id == buildingID);
-
-    if (!foundBuilding) {
-        res.status(404).json(Generate404Error("building", buildingID));
-        return;
+    try {
+        const result = await buildingService.deleteBuilding(req.params.buildingID);
+        res.status(200).json(result);
+    } catch (err: any) {
+        res.status(404).json(Generate404Error("building", req.params.buildingID));
     }
-    const allBuildingsUpdated = allBuildings.filter((b) => !(b.id == buildingID));
-    await writeBuildingsToData(allBuildingsUpdated);
-    const { rooms, ...rest } = foundBuilding;
-    res.status(200).json({
-        rooms: rooms.length,
-        ...rest,
-    });
 }
