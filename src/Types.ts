@@ -217,3 +217,9 @@ export class NotFoundError extends Error {
 		super(msg);
 	}
 }
+
+export class AlreadyExists extends Error {
+	constructor(msg: string) {
+		super(msg);
+	}
+}
