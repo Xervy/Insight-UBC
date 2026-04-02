@@ -153,15 +153,12 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		);
 	}
 
-
-
 	async function readWholeData(): Promise<Data> {
 		const file = await fs.readFile(DATA_FILE, "utf-8");
 		return JSON.parse(file) as Data;
 	}
 
 	type Kind = "course_offerings" | "facilities";
-
 	async function readPartOfData(kind: Kind): Promise<Course[] | Building[]> {
 		const data = await readWholeData();
 		switch (kind) {
@@ -171,6 +168,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				return data.facilities;
 		}
 	}
+
 
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];
@@ -1051,6 +1049,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			await writeCoursesToData(updatedOfferingsForData);
 			statObject.stats = offeringUpload.stats;
 			statObject.status = "completed";
+			statObject.message = "Dataset processing complete";
 		} else {
 			// kind == "facilites"
 
