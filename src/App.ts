@@ -1,3 +1,4 @@
+// mon tue thu: 9:30-12
 import fs from "fs/promises";
 import express from "express";
 import cors from "cors";
@@ -49,9 +50,16 @@ import {
 	ParseBuildings as ParseBuildings,
 	ParseRooms,
 	Generate404Error,
+	IsOfferingValid,
+	DatasetValidation,
+	IsZipValid,
+	IsRecordValid,
+	BulkUploadOfferings,
+	MatchListLengthToLimit,
 } from "./Helpers";
 import { error } from "console";
 import { read, readdir } from "fs";
+import { off } from "process";
 
 /**
  * Express application.
@@ -156,6 +164,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	}
 
 
+
 	async function readWholeData(): Promise<Data> {
 		const file = await fs.readFile(DATA_FILE, "utf-8");
 		return JSON.parse(file) as Data;
@@ -173,7 +182,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	}
 
-	
+
 
 	//Retrieve a list of courses
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
@@ -243,8 +252,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const data = await readPartOfData("course_offerings") as Course[];;
-		// const newCourse: Course = { id, title, dept, code, sections };
+		const data = await readPartOfData("course_offerings") as Course[];
 
 		const alreadyExists = data.find((crs) => crs.id == courseID);
 
@@ -258,8 +266,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			} as Course;
 			data.push(courseToPush);
 			await writeCoursesToData(data);
-			const cleanedCourse = UpdateCourseLink(courseToPush);
-			res.status(201).json(cleanedCourse);
+			res.status(201).json(UpdateCourseLink(courseToPush));
 			return;
 		}
 
@@ -304,12 +311,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.status(404).json(Generate404Error("course", courseID));
 			return;
 		}
-
-		const errorMessage = {
-			error: "Invalid request parameters",
-			params: {} as any,
-		};
-		let isError = false;
 
 		let limit = parseInt((req.query.limit as string) ?? 100);
 		let offset = parseInt((req.query.offset as string) ?? 0);
@@ -377,7 +378,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	app.put("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];
 		const courseID = req.params.course;
-		const sectionId = req.params.section;
+		const sectionID = req.params.section;
 		const course = data.find((c) => c.id === courseID);
 		const body = req.body;
 
@@ -393,7 +394,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const alreadyExists = course.sections.find((section) => section.id == sectionId);
+		const alreadyExists = course.sections.find((section) => section.id == sectionID);
 		if (alreadyExists) {
 			// SC 204
 			alreadyExists.instructor = body.instructor;
@@ -409,7 +410,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 
 		// SC 201
 		const toPut = {
-			id: sectionId,
+			id: sectionID,
 			instructor: body.instructor,
 			year: body.year,
 			avg: body.avg,
@@ -579,37 +580,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				const sectionID = record.id;
 				let sectionWasAdded = false;
 
-				if (
-					record.id === undefined ||
-					record.Course === undefined ||
-					record.Title === undefined ||
-					record.Professor === undefined ||
-					record.Subject === undefined ||
-					record.Section === undefined ||
-					record.Year === undefined ||
-					record.Avg === undefined ||
-					record.Pass === undefined ||
-					record.Fail === undefined ||
-					record.Audit === undefined
-				) {
-					continue;
-				} else if (
-					!(
-						typeof record.id === "number" &&
-						typeof record.Course == "string" &&
-						typeof record.Title == "string" &&
-						typeof record.Professor == "string" &&
-						typeof record.Subject == "string" &&
-						typeof record.Section == "string" &&
-						typeof record.Year == "string" &&
-						typeof record.Avg == "number" &&
-						typeof record.Pass == "number" &&
-						typeof record.Fail == "number" &&
-						typeof record.Audit == "number"
-					)
-				) {
-					continue;
-				}
+				if (!IsOfferingValid) continue;
 
 				let sectionYear = Number(record.Year);
 				if (record.Section == "overall") {
@@ -710,7 +681,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		stats.message = "Dataset processing complete";
 	});
 
-	
+
 	app.post("/api/v1/search", async (req, res) => {
 		const data = await readPartOfData("course_offerings") as Course[];
 		const body = req.body as SearchRequestBody;
@@ -806,25 +777,25 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings", async (req, res) => {
-		const buildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
 		let limit = parseInt((req.query.limit as string) ?? 100);
 		let offset = parseInt((req.query.offset as string) ?? 0);
 
 		// SC 400
-		const errorRes = RetrieveAllQueryError(limit, offset);
-		if (!(typeof errorRes == "boolean")) {
-			res.status(400).json(errorRes);
+		const queryErrorMessage = RetrieveAllQueryError(limit, offset);
+		if (!(typeof queryErrorMessage == "boolean")) {
+			res.status(400).json(queryErrorMessage);
 			return;
 		}
 
-		const buildingsWithLinks = UpdateListOfBuildingsLinks(buildings);
+		const buildingsWithLinks = UpdateListOfBuildingsLinks(allBuildings);
 
-		const sort = [...buildingsWithLinks].sort((a, b) => a.id.localeCompare(b.id));
-		let items = sort.slice(offset, offset + limit);
+		buildingsWithLinks.sort((a, b) => a.id.localeCompare(b.id));
+		let items = buildingsWithLinks.slice(offset, offset + limit);
 
 		res.status(200).json({
-			total: buildings.length,
+			total: allBuildings.length,
 			limit,
 			offset,
 			items: items,
@@ -832,17 +803,17 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 
 	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
-		const buildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
-		const building = buildings.find((b) => b.id == buildingID);
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
 
 		// SC 404
-		if (!building) {
+		if (!foundBuilding) {
 			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
-		res.status(200).json(UpdateBuildingLink(building));
+		res.status(200).json(UpdateBuildingLink(foundBuilding));
 	});
 
 	app.put("/api/v2/buildings/:buildingID", async (req, res) => {
@@ -854,25 +825,23 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
-		const buildings = data.facilities;
 		const buildingID = req.params.buildingID;
 
 		// SC 204
-		const alreadyExists = buildings.find((b) => b.id == buildingID);
+		const alreadyExists = allBuildings.find((b) => b.id == buildingID);
 		if (alreadyExists) {
 			alreadyExists.name = body.name;
 			alreadyExists.address = body.address;
 			alreadyExists.lat = body.lat;
 			alreadyExists.lon = body.lon;
 			alreadyExists.rooms = [];
-			await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+			await writeBuildingsToData(allBuildings);
 			res.status(204).send();
 			return;
 		}
-
+		// SC 201
 		const makeBuilding = {
 			id: buildingID,
 			name: body.name,
@@ -881,101 +850,82 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			lon: body.lon,
 			rooms: [],
 		};
-		buildings.push(makeBuilding);
-		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
+		allBuildings.push(makeBuilding);
+		await writeBuildingsToData(allBuildings);
 		res.status(201).json(UpdateBuildingLink(makeBuilding));
 	});
 
 	app.delete("/api/v2/buildings/:buildingID", async (req, res) => {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		const data = JSON.parse(file) as Data;
-		const buildings = data.facilities;
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
-		const buildingExists = buildings.find((b) => b.id == buildingID);
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
 
-		if (!buildingExists) {
+		if (!foundBuilding) {
 			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
-		const buildingsAfterDelete = buildings.filter((b) => !(b.id == buildingID));
-		data.facilities = buildingsAfterDelete;
-		await fs.writeFile(DATA_FILE, JSON.stringify(data), "utf-8");
-		const { rooms, ...rest } = buildingExists;
+		const allBuildingsUpdated = allBuildings.filter((b) => !(b.id == buildingID));
+		await writeBuildingsToData(allBuildingsUpdated);
+		const { rooms, ...rest } = foundBuilding;
 		res.status(200).json({
 			rooms: rooms.length,
 			...rest,
 		});
-	});
+	});	
 
 	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
 		let limit = parseInt((req.query.limit as string) ?? 100);
 		let offset = parseInt((req.query.offset as string) ?? 0);
 
-		const errorRes = RetrieveAllQueryError(limit, offset);
-		if (!(typeof errorRes === "boolean")) {
-			res.status(400).json(errorRes);
+		const queryErrorMessage = RetrieveAllQueryError(limit, offset);
+		if (!(typeof queryErrorMessage === "boolean")) {
+			res.status(400).json(queryErrorMessage);
 			return;
 		}
 
-		const buildings = await readPartOfData("facilities") as Building[];
-
+		const allBuildings = await readPartOfData("facilities") as Building[];
 		const buildingID = req.params.buildingID;
 
-		const buildingExists = buildings.find((b) => b.id == buildingID);
-		if (!buildingExists) {
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+		if (!foundBuilding) {
 			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 
-		const rooms = buildingExists.rooms;
-		let roomsToMatchLimit;
-		if (rooms.length > limit) {
-			roomsToMatchLimit = rooms.slice(0, limit);
-		} else {
-			roomsToMatchLimit = rooms;
-		}
-
-		const roomsWithLinks = UpdateListOfRoomsLinks(roomsToMatchLimit, buildingExists);
+		const roomsWithCorrectLength = MatchListLengthToLimit(foundBuilding.rooms, limit);
 		res.status(200).json({
-			total: roomsToMatchLimit.length,
+			total: roomsWithCorrectLength.length,
 			limit,
 			offset,
-			items: roomsWithLinks,
+			items: UpdateListOfRoomsLinks(roomsWithCorrectLength, foundBuilding),
 		});
 	});
 
 	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
-		const buildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
-		const buildingExists = buildings.find((b) => b.id == buildingID);
-		if (!buildingExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no building with id '${buildingID}'`,
-			});
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+		if (!foundBuilding) {
+			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 
-		const rooms = buildingExists.rooms;
+		const rooms = foundBuilding.rooms;
 		const roomID = req.params.roomID;
-		const roomExists = rooms.find((r) => r.id == roomID);
-		if (!roomExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no room with id '${roomID}'`,
-			});
+		const foundRoom = rooms.find((r) => r.id == roomID);
+		if (!foundRoom) {
+			res.status(404).json(Generate404Error("room", roomID));
 			return;
 		}
 
-		res.status(200).json(UpdateRoomLink(roomExists, buildingExists));
+		res.status(200).json(UpdateRoomLink(foundRoom, foundBuilding));
 	});
 
 	app.put("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
 		const body = req.body;
 		const buildingID = req.params.buildingID;
-		const roomID = req.params.roomID;
 
 		// SC 422
 		const errorMessage = RoomCreateError(body, buildingID);
@@ -984,34 +934,32 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			return;
 		}
 
-		const buildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
 		// SC 404
-		const buildingExists = buildings.find((b) => b.id == buildingID);
-		if (!buildingExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no building with id '${buildingID}'`,
-			});
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+		if (!foundBuilding) {
+			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 
 		// SC 204
-		const rooms = buildingExists.rooms;
-		const roomExists = rooms.find((r) => r.id == roomID);
-		if (roomExists) {
-			// Didnt do building because it shouldnt change
-			roomExists.number = body.number;
-			roomExists.type = body.type;
-			roomExists.furniture = body.furniture;
-			roomExists.href = body.href;
-			roomExists.seats = body.seats;
-			await writeBuildingsToData(buildings);
+		const rooms = foundBuilding.rooms;
+		const roomID = req.params.roomID;
+		const foundRoom = rooms.find((r) => r.id == roomID);
+		if (foundRoom) {
+			foundRoom.number = body.number;
+			foundRoom.type = body.type;
+			foundRoom.furniture = body.furniture;
+			foundRoom.href = body.href;
+			foundRoom.seats = body.seats;
+
+			await writeBuildingsToData(allBuildings);
 			res.status(204).send();
 			return;
 		}
-
-		const makeRoom = {
+		// SC 201
+		const roomToAdd = {
 			id: roomID,
 			building: body.building,
 			number: body.number,
@@ -1019,71 +967,48 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			furniture: body.furniture,
 			href: body.href,
 			seats: body.seats,
-		};
-		rooms.push(makeRoom);
-		await writeBuildingsToData(buildings);
-		res.status(201).json(UpdateRoomLink(makeRoom, buildingExists));
+		} as Room;
+		rooms.push(roomToAdd);
+		await writeBuildingsToData(allBuildings);
+		res.status(201).json(UpdateRoomLink(roomToAdd, foundBuilding));
 	});
 
 	app.delete("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
-		const buildings = await readPartOfData("facilities") as Building[];
+		const allBuildings = await readPartOfData("facilities") as Building[];
 
 		const buildingID = req.params.buildingID;
 		const roomID = req.params.roomID;
 
 		// SC 404
-		const buildingExists = buildings.find((b) => b.id == buildingID);
-		if (!buildingExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no building with id '${buildingID}'`,
-			});
-			return;
-		}
-		const rooms = buildingExists.rooms;
-		const roomExists = rooms.find((r) => r.id == roomID);
-		if (!roomExists) {
-			res.status(404).json({
-				error: "Not found",
-				message: `no room with id '${roomID}'`,
-			});
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+		if (!foundBuilding) {
+			res.status(404).json(Generate404Error("building", buildingID));
 			return;
 		}
 
-		const roomsAfterDelete = rooms.filter((r) => !(r.id == roomID));
-		buildingExists.rooms = roomsAfterDelete;
-		await writeBuildingsToData(buildings);
-		res.status(200).json(roomExists);
+		const rooms = foundBuilding.rooms;
+		const foundRoom = rooms.find((r) => r.id == roomID);
+		if (!foundRoom) {
+			res.status(404).json(Generate404Error("room", roomID));
+			return;
+		}
+
+		foundBuilding.rooms = foundBuilding.rooms.filter((r) => !(r.id == roomID));
+		await writeBuildingsToData(allBuildings);
+		res.status(200).json(foundRoom);
 	});
+
+
 
 	app.post("/api/v2/datasets", upload.single("archive"), async (req, res) => {
 		// SC 422
-		let isError = false;
-		const errorMes = {
-			error: "Validation failed",
-			fields: {} as any,
-		};
-		if (!req.body || !req.body.kind) {
-			errorMes.fields["kind"] = "required but missing";
-			isError = true;
-		} else if (req.body.kind != "course_offerings" && req.body.kind != "facilities") {
-			errorMes.fields["kind"] = "expected to be course_offerings or facilities";
-			isError = true;
-		}
-		if (!req.file) {
-			errorMes.fields["archive"] = "required but missing";
-			isError = true;
-		} else if (req.file.size == 0) {
-			errorMes.fields["archive"] = "expected non-empty file";
-			isError = true;
-		}
-		if (isError) {
-			res.status(422).json(errorMes);
+		let errorMessage = DatasetValidation(req);
+		if (typeof errorMessage !== "boolean") {
+			res.status(422).json(errorMessage);
 			return;
 		}
 
 		// SC 200
-
 		const id = generateSectionID();
 
 		if (req.body.kind == "course_offerings") {
@@ -1106,7 +1031,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			} as UploadOfferingStats;
 			bulkUploads.push(statObject);
 
-			const stats = statObject.stats;
+			// const stats = statObject.stats;
 
 			res.status(202).json({
 				id: id.toString(),
@@ -1115,27 +1040,21 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				message: "Dataset accepted for processing",
 			});
 
-			const OfferingsInData = await readPartOfData("course_offerings") as Course[];
 
 			// The file will be available as req.file
 			// The zip content is in req.file.buffer
 			const zipBuffer = req.file!.buffer;
-
 			let zip;
-			// Use JSZip to process the buffer
-			try {
-				zip = await JSZip.loadAsync(zipBuffer);
-			} catch (e) {
-				statObject.status = "failed";
-				statObject.message = "Data is not in a valid zip format";
-				return;
-			}
 
-			// CHECK FOR COURSES FOLDER
-			const hasCoursesFolder = Object.keys(zip.files).some((filepath) => filepath.startsWith("courses/"));
-			if (!hasCoursesFolder) {
+			try {
+				zip = await IsZipValid(zipBuffer);
+			} catch (e: any) {
 				statObject.status = "failed";
-				statObject.message = "Missing root courses directory";
+				if (e instanceof SearchEBNFError) {
+					statObject.message = e.message;
+				} else {
+					res.status(500).send("Oh Hell Nah, WTF happened");
+				}
 				return;
 			}
 
@@ -1144,149 +1063,14 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				(file) => file.name.startsWith("courses/") && file.name !== "courses/" && !file.dir
 			);
 
-			for (const file of coursesFiles) {
-				const fileContent = await file.async("string");
-				stats.files_total += 1;
-				let parsedFile;
-				try {
-					parsedFile = JSON.parse(fileContent);
 
-					if (!parsedFile.result || !Array.isArray(parsedFile.result)) {
-						stats.files_skipped += 1;
-						continue;
-					}
-				} catch {
-					stats.files_skipped += 1;
-					continue; // YAY OR NAY?
-				}
-				stats.files_processed += 1;
-				// JSON needs to have parameter 'result' which must be an array
+			const OfferingsInData = await readPartOfData("course_offerings") as Course[];
 
-				// record is each offering object in result
-				for (const record of parsedFile.result) {
-					// Check Database if Course already Exists
-					// If So: Iterate through Sections to find if Section Exists, Determine if new Section or modify section
-					// If not: Push the new course to the database
-					const courseID = record.Subject + record.Course;
-					const sectionID = record.id;
-					let sectionWasAdded = false;
+			const offeringUpload = await BulkUploadOfferings(coursesFiles, OfferingsInData);
+			const updatedOfferingsForData = offeringUpload.OfferingsInData;
 
-					if (
-						record.id === undefined ||
-						record.Course === undefined ||
-						record.Title === undefined ||
-						record.Professor === undefined ||
-						record.Subject === undefined ||
-						record.Section === undefined ||
-						record.Year === undefined ||
-						record.Avg === undefined ||
-						record.Pass === undefined ||
-						record.Fail === undefined ||
-						record.Audit === undefined
-					) {
-						continue;
-					} else if (
-						!(
-							typeof record.id === "number" &&
-							typeof record.Course === "string" &&
-							typeof record.Title === "string" &&
-							typeof record.Professor === "string" &&
-							typeof record.Subject === "string" &&
-							typeof record.Section === "string" &&
-							typeof record.Year === "string" &&
-							typeof record.Avg === "number" &&
-							typeof record.Pass === "number" &&
-							typeof record.Fail === "number" &&
-							typeof record.Audit === "number"
-						)
-					) {
-						continue;
-					}
-
-					let sectionYear = Number(record.Year);
-					if (record.Section == "overall") {
-						sectionYear = 1900;
-					}
-
-					for (const course of OfferingsInData) {
-						if (course.id == courseID) {
-							// Make Updates
-							course.code = record.Course;
-							course.dept = record.Subject;
-							let mostRecent = true;
-
-							for (const section of course.sections) {
-								if (section.year >= sectionYear) {
-									mostRecent = false;
-									break;
-								}
-							}
-							if (mostRecent) {
-								course.title = record.Title;
-							}
-
-							// Check if Course already has Section
-							// If No, Push Section to Course
-							// If Yes, Update Section Parameters
-							const alreadyHasSection = course.sections.find((section) => section.id == record.id);
-							if (!alreadyHasSection) {
-								course.sections.push({
-									id: sectionID.toString(),
-									instructor: record.Professor,
-									year: sectionYear,
-									avg: record.Avg,
-									pass: record.Pass,
-									fail: record.Fail,
-									audit: record.Audit,
-								});
-								stats.sections_added += 1;
-							} else {
-								alreadyHasSection.instructor = record.Professor;
-								if (record.Section == "overall") {
-									alreadyHasSection.year = 1900;
-								} else {
-									alreadyHasSection.year = sectionYear;
-								}
-								alreadyHasSection.avg = record.Avg;
-								alreadyHasSection.pass = record.Pass;
-								alreadyHasSection.fail = record.Fail;
-								alreadyHasSection.audit = record.Audit;
-
-								stats.sections_modified += 1;
-							}
-
-							stats.courses_modified += 1;
-							sectionWasAdded = true;
-						}
-					}
-					// If the Course does not already exist, add it to jsonFile
-					if (!sectionWasAdded) {
-						OfferingsInData.push({
-							id: courseID,
-							title: record.Title,
-							dept: record.Subject,
-							code: record.Course,
-							sections: [
-								{
-									id: sectionID.toString(),
-									instructor: record.Professor,
-									year: sectionYear,
-									avg: record.Avg,
-									pass: record.Pass,
-									fail: record.Fail,
-									audit: record.Audit,
-								},
-							],
-						});
-						stats.courses_added += 1;
-						stats.sections_added += 1;
-					}
-				}
-			}
-			stats.courses_seen = stats.courses_added + stats.courses_modified;
-			stats.sections_seen = stats.sections_added + stats.sections_modified;
-			// Write Json to file
-			await writeCoursesToData(OfferingsInData);
+			await writeCoursesToData(updatedOfferingsForData);
+			statObject.stats = offeringUpload.stats;
 			statObject.status = "completed";
 		} else {
 			// kind == "facilites"
