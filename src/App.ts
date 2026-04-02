@@ -60,10 +60,7 @@ import { error } from "console";
 import { read, readdir } from "fs";
 import { off } from "process";
 import { RetrieveAllQueryError } from "./utils/validation";
-import {
-	initFileStore, readPartOfData, writeBuildingsToData,
-	writeCoursesToData
-} from "./storage/fileStore";
+import { initFileStore, readPartOfData, writeBuildingsToData, writeCoursesToData } from "./storage/fileStore";
 
 import buildingRoutes from "./routes/buildingRoutes";
 

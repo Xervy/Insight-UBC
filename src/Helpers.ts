@@ -681,7 +681,6 @@ export function UpdateRoomLink(room: Room, bld: Building) {
 // returns the error message for when query is incorrect for retrieving
 // courses, sections, buildings, rooms. Returns false if no error
 
-
 // Returns the validation errorMessage for creating a building,
 // Returns false if there is no error
 export function BuildingCreateError(body: any) {
