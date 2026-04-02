@@ -754,7 +754,7 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.status(400).json(EBNFError((e as SearchEBNFError).message));
 		}
 	});
-	app.use("/", buildingRoutes);
+	app.use("/api/", buildingRoutes);
 	// app.get("/api/v2/buildings", async (req, res) => {
 	// 	const allBuildings = (await readPartOfData("facilities")) as Building[];
 

@@ -3,6 +3,7 @@ import * as buildingService from "../services/resources/buildingService";
 import { Generate404Error } from "../Helpers";
 import { NotFoundError } from "../Types";
 import { Console } from "console";
+import { RetrieveAllQueryError } from "../utils/validation";
 
 export async function getBuildings(req: Request, res: Response) {
 	try {
@@ -13,7 +14,7 @@ export async function getBuildings(req: Request, res: Response) {
 
 		res.status(200).json(result);
 	} catch (err: any) {
-		res.status(400).json(err);
+		res.status(400).json(RetrieveAllQueryError((req as any).pagination.limit, (req as any).pagination.offset));
 	}
 }
 
