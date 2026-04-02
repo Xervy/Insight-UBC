@@ -125,16 +125,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.send("App is running!");
 	});
 
-	// async function readData(): Promise<Course[]> {
-	// 	try {
-	// 		const data = await fs.readFile(DATA_FILE, "utf-8");
-	// 		const unfixedForDeprecated = JSON.parse(data) as Data;
-	// 		return unfixedForDeprecated.course_offerings;
-	// 	} catch {
-	// 		return [];
-	// 	}
-	// }
-
 	async function writeCoursesToData(courses: Course[]): Promise<void> {
 		const data = await readWholeData();
 		const buildings = data.facilities;
@@ -182,9 +172,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	}
 
-
-
-	//Retrieve a list of courses
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];
 
@@ -216,7 +203,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		});
 	});
 
-	//Retrieve a course
 	app.get("/api/v1/courses/:course", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];;
 		const courseID = req.params.course;
@@ -239,8 +225,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			},
 		});
 	});
-
-	//Create or replace a course
 
 	app.put("/api/v1/courses/:course", async (req, res): Promise<void> => {
 		const courseID = req.params.course;
@@ -278,7 +262,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.status(204).send();
 	});
 
-	//Remove a course
 	app.delete("/api/v1/courses/:course", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];;
 		const courseID = req.params.course;
@@ -300,7 +283,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		});
 	});
 
-	//Retrieve a list of sections for a course
 	app.get("/api/v1/courses/:course/sections", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];;
 		const courseID = req.params.course;
@@ -338,7 +320,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		});
 	});
 
-	// Retrieve a section for a course
 	app.get("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];;
 		const courseID = req.params.course;
@@ -374,7 +355,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		});
 	});
 
-	//Create or replace a section for a course
 	app.put("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];
 		const courseID = req.params.course;
@@ -424,7 +404,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.status(201).json(response);
 	});
 
-	//Remove a section from a course
 	app.delete("/api/v1/courses/:course/sections/:section", async (req, res): Promise<void> => {
 		const data = await readPartOfData("course_offerings") as Course[];
 		const courseID = req.params.course;
