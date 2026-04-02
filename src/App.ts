@@ -784,19 +784,19 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	// 	});
 	// });
 
-	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
-		const allBuildings = (await readPartOfData("facilities")) as Building[];
+	// app.get("/api/v2/buildings/:buildingID", async (req, res) => {
+	// 	const allBuildings = (await readPartOfData("facilities")) as Building[];
 
-		const buildingID = req.params.buildingID;
-		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+	// 	const buildingID = req.params.buildingID;
+	// 	const foundBuilding = allBuildings.find((b) => b.id == buildingID);
 
-		// SC 404
-		if (!foundBuilding) {
-			res.status(404).json(Generate404Error("building", buildingID));
-			return;
-		}
-		res.status(200).json(UpdateBuildingLink(foundBuilding));
-	});
+	// 	// SC 404
+	// 	if (!foundBuilding) {
+	// 		res.status(404).json(Generate404Error("building", buildingID));
+	// 		return;
+	// 	}
+	// 	res.status(200).json(UpdateBuildingLink(foundBuilding));
+	// });
 
 	app.put("/api/v2/buildings/:buildingID", async (req, res) => {
 		const body = req.body;

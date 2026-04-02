@@ -2122,6 +2122,7 @@ describe("REST API v1", function () {
 	});
 
 	describe("BUILDINGS", async function () {
+
 		it("PUT /api/v2/buildings/{builing} - Expected: 422", async () => {
 			const res = await request(app).put("/api/v2/buildings/DMP").send({
 				address: "6245 Agronomy Road V6T 1Z4",
@@ -2158,6 +2159,41 @@ describe("REST API v1", function () {
 					self: "/api/v2/buildings/DMP",
 					rooms: "/api/v2/buildings/DMP/rooms",
 				},
+			});
+
+			const check = await request(app).get("/api/v2/buildings/DMP");
+			expect(check).to.have.property("status", OK);
+			expect(check).to.have.deep.property("body", {
+				"id": "DMP",
+				"name": "Hugh Dempster Pavilion",
+				"address": "6245 Agronomy Road V6T 1Z4",
+				"lat": 49.26125,
+				"lon": -123.24807,
+				"links": {
+					"self": "/api/v2/buildings/DMP",
+					"rooms": "/api/v2/buildings/DMP/rooms"
+				}
+			});
+
+			const check2 = await request(app).get("/api/v2/buildings");
+			expect(check2).to.have.property("status", OK);
+			expect(check2).to.have.deep.property("body", {
+				"total": 1,
+				"limit": 100,
+				"offset": 0,
+				"items": [
+					{
+						"id": "DMP",
+						"name": "Hugh Dempster Pavilion",
+						"address": "6245 Agronomy Road V6T 1Z4",
+						"lat": 49.26125,
+						"lon": -123.24807,
+						"links": {
+							"self": "/api/v2/buildings/DMP",
+							"rooms": "/api/v2/buildings/DMP/rooms"
+						}
+					}
+				]
 			});
 		});
 
@@ -2957,7 +2993,7 @@ describe("REST API v1", function () {
 			});
 		});
 
-		it("POST /api/v2/datasets - Expected: 202", async () => {});
+		it("POST /api/v2/datasets - Expected: 202", async () => { });
 	});
 
 	describe("GET Datasets v2", async function () {
