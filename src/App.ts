@@ -38,7 +38,6 @@ import {
 	UpdateListOfSectionsLinks,
 	UpdateSectionLink,
 	UpdateListOfBuildingsLinks,
-	RetrieveAllQueryError,
 	UpdateBuildingLink,
 	BuildingCreateError,
 	UpdateListOfRoomsLinks,
@@ -60,6 +59,13 @@ import {
 import { error } from "console";
 import { read, readdir } from "fs";
 import { off } from "process";
+import { RetrieveAllQueryError } from "./utils/validation";
+import {
+	initFileStore, readPartOfData, writeBuildingsToData,
+	writeCoursesToData
+} from "./storage/fileStore";
+
+import buildingRoutes from "./routes/buildingRoutes";
 
 /**
  * Express application.
@@ -104,18 +110,19 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	app.use(express.raw({ type: "application/*", limit: "10mb" }));
 	app.use(cors());
 
-	const DATA_FILE = datadir + "/data.json";
+	// const DATA_FILE = datadir + "/data.json";
 
-	await fs.access(DATA_FILE).catch(async (_err) => {
-		await fs.writeFile(
-			DATA_FILE,
-			JSON.stringify({
-				course_offerings: [],
-				facilities: [],
-			}),
-			"utf-8"
-		);
-	});
+	// await fs.access(DATA_FILE).catch(async (_err) => {
+	// 	await fs.writeFile(
+	// 		DATA_FILE,
+	// 		JSON.stringify({
+	// 			course_offerings: [],
+	// 			facilities: [],
+	// 		}),
+	// 		"utf-8"
+	// 	);
+	// });
+	await initFileStore(datadir);
 
 	const UPLOAD_FILE = "uploadFile.json";
 
@@ -125,49 +132,49 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.send("App is running!");
 	});
 
-	async function writeCoursesToData(courses: Course[]): Promise<void> {
-		const data = await readWholeData();
-		const buildings = data.facilities;
-		const newData = {
-			course_offerings: courses,
-			facilities: buildings,
-		};
-		await fs.writeFile(
-			DATA_FILE,
-			JSON.stringify(newData, null, 2), // pretty format
-			"utf-8"
-		);
-	}
+	// async function writeCoursesToData(courses: Course[]): Promise<void> {
+	// 	const data = await readWholeData();
+	// 	const buildings = data.facilities;
+	// 	const newData = {
+	// 		course_offerings: courses,
+	// 		facilities: buildings,
+	// 	};
+	// 	await fs.writeFile(
+	// 		DATA_FILE,
+	// 		JSON.stringify(newData, null, 2), // pretty format
+	// 		"utf-8"
+	// 	);
+	// }
 
-	async function writeBuildingsToData(buildings: Building[]): Promise<void> {
-		const data = await readWholeData();
-		const courses = data.course_offerings;
-		const newData = {
-			course_offerings: courses,
-			facilities: buildings,
-		};
-		await fs.writeFile(
-			DATA_FILE,
-			JSON.stringify(newData, null, 2), // pretty format
-			"utf-8"
-		);
-	}
+	// async function writeBuildingsToData(buildings: Building[]): Promise<void> {
+	// 	const data = await readWholeData();
+	// 	const courses = data.course_offerings;
+	// 	const newData = {
+	// 		course_offerings: courses,
+	// 		facilities: buildings,
+	// 	};
+	// 	await fs.writeFile(
+	// 		DATA_FILE,
+	// 		JSON.stringify(newData, null, 2), // pretty format
+	// 		"utf-8"
+	// 	);
+	// }
 
-	async function readWholeData(): Promise<Data> {
-		const file = await fs.readFile(DATA_FILE, "utf-8");
-		return JSON.parse(file) as Data;
-	}
+	// async function readWholeData(): Promise<Data> {
+	// 	const file = await fs.readFile(DATA_FILE, "utf-8");
+	// 	return JSON.parse(file) as Data;
+	// }
 
-	type Kind = "course_offerings" | "facilities";
-	async function readPartOfData(kind: Kind): Promise<Course[] | Building[]> {
-		const data = await readWholeData();
-		switch (kind) {
-			case "course_offerings":
-				return data.course_offerings;
-			case "facilities":
-				return data.facilities;
-		}
-	}
+	// type Kind = "course_offerings" | "facilities";
+	// async function readPartOfData(kind: Kind): Promise<Course[] | Building[]> {
+	// 	const data = await readWholeData();
+	// 	switch (kind) {
+	// 		case "course_offerings":
+	// 			return data.course_offerings;
+	// 		case "facilities":
+	// 			return data.facilities;
+	// 	}
+	// }
 
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
 		const data = (await readPartOfData("course_offerings")) as Course[];
@@ -750,32 +757,32 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.status(400).json(EBNFError((e as SearchEBNFError).message));
 		}
 	});
+	app.use("/", buildingRoutes);
+	// app.get("/api/v2/buildings", async (req, res) => {
+	// 	const allBuildings = (await readPartOfData("facilities")) as Building[];
 
-	app.get("/api/v2/buildings", async (req, res) => {
-		const allBuildings = (await readPartOfData("facilities")) as Building[];
+	// 	let limit = parseInt((req.query.limit as string) ?? 100);
+	// 	let offset = parseInt((req.query.offset as string) ?? 0);
 
-		let limit = parseInt((req.query.limit as string) ?? 100);
-		let offset = parseInt((req.query.offset as string) ?? 0);
+	// 	// SC 400
+	// 	const queryErrorMessage = RetrieveAllQueryError(limit, offset);
+	// 	if (!(typeof queryErrorMessage == "boolean")) {
+	// 		res.status(400).json(queryErrorMessage);
+	// 		return;
+	// 	}
 
-		// SC 400
-		const queryErrorMessage = RetrieveAllQueryError(limit, offset);
-		if (!(typeof queryErrorMessage == "boolean")) {
-			res.status(400).json(queryErrorMessage);
-			return;
-		}
+	// 	const buildingsWithLinks = UpdateListOfBuildingsLinks(allBuildings);
 
-		const buildingsWithLinks = UpdateListOfBuildingsLinks(allBuildings);
+	// 	buildingsWithLinks.sort((a, b) => a.id.localeCompare(b.id));
+	// 	let items = buildingsWithLinks.slice(offset, offset + limit);
 
-		buildingsWithLinks.sort((a, b) => a.id.localeCompare(b.id));
-		let items = buildingsWithLinks.slice(offset, offset + limit);
-
-		res.status(200).json({
-			total: allBuildings.length,
-			limit,
-			offset,
-			items: items,
-		});
-	});
+	// 	res.status(200).json({
+	// 		total: allBuildings.length,
+	// 		limit,
+	// 		offset,
+	// 		items: items,
+	// 	});
+	// });
 
 	app.get("/api/v2/buildings/:buildingID", async (req, res) => {
 		const allBuildings = (await readPartOfData("facilities")) as Building[];
