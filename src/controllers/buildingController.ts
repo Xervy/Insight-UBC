@@ -21,8 +21,7 @@ export async function getBuildings(req: Request, res: Response) {
 
 export async function getBuilding(req: Request, res: Response) {
 	try {
-		const buildingID = req.params.buildingID;
-		const result = await buildingService.getBuilding(buildingID);
+		const result = await buildingService.getBuilding(req.params.buildingID);
 		res.status(200).json(result);
 	} catch (err: any) {
 		res.status(404).json(Generate404Error("building", (err as Error).message));
