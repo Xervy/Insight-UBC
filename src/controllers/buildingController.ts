@@ -35,6 +35,7 @@ export async function putBuilding(req: Request, res: Response) {
     } catch (err: any) {
         if (err instanceof AlreadyExists) {
             res.status(204).send();
+            return;
         }
         res.status(422).json(BuildingCreateError(req.body));
     }
