@@ -13,7 +13,7 @@ export async function getBuildings(params: GetBuildingsParams) {
 	const { limit, offset } = params;
 	const queryErrorMessage = RetrieveAllQueryError(limit, offset);
 	if (typeof queryErrorMessage !== "boolean") {
-		throw new Error("queryErrorMessage"); //TODO
+		throw new Error("invalid request parameters");
 	}
 
 	const allBuildings = await getAllBuildings();
@@ -81,5 +81,5 @@ export async function deleteBuilding(buildingID: string) {
 	return {
 		rooms: rooms.length,
 		...rest,
-	}
+	};
 }

@@ -756,33 +756,33 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	});
 	app.use("/api/", buildingRoutes);
 
-	app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
-		let limit = parseInt((req.query.limit as string) ?? 100);
-		let offset = parseInt((req.query.offset as string) ?? 0);
+	// app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
+	// 	let limit = parseInt((req.query.limit as string) ?? 100);
+	// 	let offset = parseInt((req.query.offset as string) ?? 0);
 
-		const queryErrorMessage = RetrieveAllQueryError(limit, offset);
-		if (!(typeof queryErrorMessage === "boolean")) {
-			res.status(400).json(queryErrorMessage);
-			return;
-		}
+	// 	const queryErrorMessage = RetrieveAllQueryError(limit, offset);
+	// 	if (!(typeof queryErrorMessage === "boolean")) {
+	// 		res.status(400).json(queryErrorMessage);
+	// 		return;
+	// 	}
 
-		const allBuildings = (await readPartOfData("facilities")) as Building[];
-		const buildingID = req.params.buildingID;
+	// 	const allBuildings = (await readPartOfData("facilities")) as Building[];
+	// 	const buildingID = req.params.buildingID;
 
-		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
-		if (!foundBuilding) {
-			res.status(404).json(Generate404Error("building", buildingID));
-			return;
-		}
+	// 	const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+	// 	if (!foundBuilding) {
+	// 		res.status(404).json(Generate404Error("building", buildingID));
+	// 		return;
+	// 	}
 
-		const roomsWithCorrectLength = MatchListLengthToLimit(foundBuilding.rooms, limit);
-		res.status(200).json({
-			total: roomsWithCorrectLength.length,
-			limit,
-			offset,
-			items: UpdateListOfRoomsLinks(roomsWithCorrectLength, foundBuilding),
-		});
-	});
+	// 	const roomsWithCorrectLength = MatchListLengthToLimit(foundBuilding.rooms, limit);
+	// 	res.status(200).json({
+	// 		total: roomsWithCorrectLength.length,
+	// 		limit,
+	// 		offset,
+	// 		items: UpdateListOfRoomsLinks(roomsWithCorrectLength, foundBuilding),
+	// 	});
+	// });
 
 	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
 		const allBuildings = (await readPartOfData("facilities")) as Building[];
