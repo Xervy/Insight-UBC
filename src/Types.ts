@@ -212,6 +212,12 @@ export class SearchEBNFError extends Error {
 	}
 }
 
+export class InvalidRequestParameters extends Error {
+	constructor(msg: string) {
+		super(msg);
+	}
+}
+
 export class NotFoundError extends Error {
 	constructor(msg: string) {
 		super(msg);
