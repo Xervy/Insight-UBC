@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import * as buildingService from "../services/resources/buildingService";
-import { BuildingCreateError, Generate404Error } from "../Helpers";
-import { AlreadyExists, InvalidRequestParameters } from "../Types";
+import { BuildingCreateError, Generate404Error, RoomCreateError, UpdateRoomLink } from "../Helpers";
+import { AlreadyExists, Building, InvalidRequestParameters, Room } from "../Types";
 import { RetrieveAllQueryError } from "../utils/validation";
 import * as roomService from "../services/resources/roomService"
+import { readPartOfData, writeBuildingsToData } from "../storage/fileStore";
 
 export async function getBuildings(req: Request, res: Response) {
 	try {
@@ -63,4 +64,101 @@ export async function getRooms(req: Request, res: Response) {
 		}
 		res.status(404).json(Generate404Error("building", req.params.buildingID));
 	}
+}
+
+
+export async function getRoom(req: Request, res: Response) {
+	const allBuildings = (await readPartOfData("facilities")) as Building[];
+	
+			const buildingID = req.params.buildingID;
+			const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+			if (!foundBuilding) {
+				res.status(404).json(Generate404Error("building", buildingID));
+				return;
+			}
+	
+			const rooms = foundBuilding.rooms;
+			const roomID = req.params.roomID;
+			const foundRoom = rooms.find((r) => r.id == roomID);
+			if (!foundRoom) {
+				res.status(404).json(Generate404Error("room", roomID));
+				return;
+			}
+	
+			res.status(200).json(UpdateRoomLink(foundRoom, foundBuilding));
+}
+
+export async function putRoom(req: Request, res: Response) {
+	const body = req.body;
+			const buildingID = req.params.buildingID;
+	
+			// SC 422
+			const errorMessage = RoomCreateError(body, buildingID);
+			if (!(typeof errorMessage === "boolean")) {
+				res.status(422).json(errorMessage);
+				return;
+			}
+	
+			const allBuildings = (await readPartOfData("facilities")) as Building[];
+	
+			// SC 404
+			const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+			if (!foundBuilding) {
+				res.status(404).json(Generate404Error("building", buildingID));
+				return;
+			}
+	
+			// SC 204
+			const rooms = foundBuilding.rooms;
+			const roomID = req.params.roomID;
+			const foundRoom = rooms.find((r) => r.id == roomID);
+			if (foundRoom) {
+				foundRoom.number = body.number;
+				foundRoom.type = body.type;
+				foundRoom.furniture = body.furniture;
+				foundRoom.href = body.href;
+				foundRoom.seats = body.seats;
+	
+				await writeBuildingsToData(allBuildings);
+				res.status(204).send();
+				return;
+			}
+			// SC 201
+			const roomToAdd = {
+				id: roomID,
+				building: body.building,
+				number: body.number,
+				type: body.type,
+				furniture: body.furniture,
+				href: body.href,
+				seats: body.seats,
+			} as Room;
+			rooms.push(roomToAdd);
+			await writeBuildingsToData(allBuildings);
+			res.status(201).json(UpdateRoomLink(roomToAdd, foundBuilding));
+}
+
+export async function deleteRoom(req: Request, res: Response) {
+	const allBuildings = (await readPartOfData("facilities")) as Building[];
+
+		const buildingID = req.params.buildingID;
+		const roomID = req.params.roomID;
+
+		// SC 404
+		const foundBuilding = allBuildings.find((b) => b.id == buildingID);
+		if (!foundBuilding) {
+			res.status(404).json(Generate404Error("building", buildingID));
+			return;
+		}
+
+		const rooms = foundBuilding.rooms;
+		const foundRoom = rooms.find((r) => r.id == roomID);
+		if (!foundRoom) {
+			res.status(404).json(Generate404Error("room", roomID));
+			return;
+		}
+
+		foundBuilding.rooms = foundBuilding.rooms.filter((r) => !(r.id == roomID));
+		await writeBuildingsToData(allBuildings);
+		res.status(200).json(foundRoom);
 }
