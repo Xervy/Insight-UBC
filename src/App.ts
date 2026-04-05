@@ -129,50 +129,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		res.send("App is running!");
 	});
 
-	// async function writeCoursesToData(courses: Course[]): Promise<void> {
-	// 	const data = await readWholeData();
-	// 	const buildings = data.facilities;
-	// 	const newData = {
-	// 		course_offerings: courses,
-	// 		facilities: buildings,
-	// 	};
-	// 	await fs.writeFile(
-	// 		DATA_FILE,
-	// 		JSON.stringify(newData, null, 2), // pretty format
-	// 		"utf-8"
-	// 	);
-	// }
-
-	// async function writeBuildingsToData(buildings: Building[]): Promise<void> {
-	// 	const data = await readWholeData();
-	// 	const courses = data.course_offerings;
-	// 	const newData = {
-	// 		course_offerings: courses,
-	// 		facilities: buildings,
-	// 	};
-	// 	await fs.writeFile(
-	// 		DATA_FILE,
-	// 		JSON.stringify(newData, null, 2), // pretty format
-	// 		"utf-8"
-	// 	);
-	// }
-
-	// async function readWholeData(): Promise<Data> {
-	// 	const file = await fs.readFile(DATA_FILE, "utf-8");
-	// 	return JSON.parse(file) as Data;
-	// }
-
-	// type Kind = "course_offerings" | "facilities";
-	// async function readPartOfData(kind: Kind): Promise<Course[] | Building[]> {
-	// 	const data = await readWholeData();
-	// 	switch (kind) {
-	// 		case "course_offerings":
-	// 			return data.course_offerings;
-	// 		case "facilities":
-	// 			return data.facilities;
-	// 	}
-	// }
-
 	app.get("/api/v1/courses", async (req, res): Promise<void> => {
 		const data = (await readPartOfData("course_offerings")) as Course[];
 
@@ -755,34 +711,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 		}
 	});
 	app.use("/api/", buildingRoutes);
-
-	// app.get("/api/v2/buildings/:buildingID/rooms", async (req, res) => {
-	// 	let limit = parseInt((req.query.limit as string) ?? 100);
-	// 	let offset = parseInt((req.query.offset as string) ?? 0);
-
-	// 	const queryErrorMessage = RetrieveAllQueryError(limit, offset);
-	// 	if (!(typeof queryErrorMessage === "boolean")) {
-	// 		res.status(400).json(queryErrorMessage);
-	// 		return;
-	// 	}
-
-	// 	const allBuildings = (await readPartOfData("facilities")) as Building[];
-	// 	const buildingID = req.params.buildingID;
-
-	// 	const foundBuilding = allBuildings.find((b) => b.id == buildingID);
-	// 	if (!foundBuilding) {
-	// 		res.status(404).json(Generate404Error("building", buildingID));
-	// 		return;
-	// 	}
-
-	// 	const roomsWithCorrectLength = MatchListLengthToLimit(foundBuilding.rooms, limit);
-	// 	res.status(200).json({
-	// 		total: roomsWithCorrectLength.length,
-	// 		limit,
-	// 		offset,
-	// 		items: UpdateListOfRoomsLinks(roomsWithCorrectLength, foundBuilding),
-	// 	});
-	// });
 
 	app.get("/api/v2/buildings/:buildingID/rooms/:roomID", async (req, res) => {
 		const allBuildings = (await readPartOfData("facilities")) as Building[];
