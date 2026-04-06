@@ -2122,6 +2122,78 @@ describe("REST API v1", function () {
 	});
 
 	describe("BUILDINGS", async function () {
+		it("GET /api/v2/buildings - Expected: OK - In Bounds", async () => {
+			const res = await request(app).get("/api/v2/buildings?limit=2000&offset=5");
+			expect(res).to.have.property("status", OK);
+			expect(res).to.have.deep.property("body", {
+				total: 0,
+				limit: 2000,
+				offset: 5,
+				items: [],
+			});
+		});
+
+		it("GET /api/v2/buildings - Expected: OK - On Bounds", async () => {
+			const resLow = await request(app).get("/api/v2/buildings?limit=1&offset=0");
+			expect(resLow).to.have.property("status", OK);
+			expect(resLow).to.have.deep.property("body", {
+				total: 0,
+				limit: 1,
+				offset: 0,
+				items: [],
+			});
+
+			const resHi = await request(app).get("/api/v2/buildings?limit=5000&offset=0");
+			expect(resHi).to.have.property("status", OK);
+			expect(resHi).to.have.deep.property("body", {
+				total: 0,
+				limit: 5000,
+				offset: 0,
+				items: [],
+			});
+		});
+
+		it("GET /api/v2/buildings - Bounds +1", async () => {
+			const resLow = await request(app).get("/api/v2/buildings?limit=2&offset=1");
+			expect(resLow).to.have.property("status", OK);
+			expect(resLow).to.have.deep.property("body", {
+				total: 0,
+				limit: 2,
+				offset: 1,
+				items: [],
+			});
+
+			const resHi = await request(app).get("/api/v2/buildings?limit=5001&offset=1");
+			expect(resHi).to.have.property("status", BAD_REQUEST);
+			expect(resHi).to.have.deep.property("body", {
+				error: "Invalid request parameters",
+				params: {
+					limit: "expected an integer between 1 and 5000",
+				},
+			});
+		});
+
+		it("GET /api/v2/buildings - Bounds -1", async () => {
+			const resLow = await request(app).get("/api/v2/buildings?limit=0&offset=-1");
+			expect(resLow).to.have.property("status", BAD_REQUEST);
+			expect(resLow).to.have.deep.property("body", {
+				error: "Invalid request parameters",
+				params: {
+					limit: "expected an integer between 1 and 5000",
+					offset: "expected an integer >= 0",
+				},
+			});
+
+			const resHi = await request(app).get("/api/v2/buildings?limit=4999&offset=-1");
+			expect(resHi).to.have.property("status", BAD_REQUEST);
+			expect(resHi).to.have.deep.property("body", {
+				error: "Invalid request parameters",
+				params: {
+					offset: "expected an integer >= 0",
+				},
+			});
+		});
+
 		it("PUT /api/v2/buildings/{builing} - Expected: 422", async () => {
 			const res = await request(app).put("/api/v2/buildings/DMP").send({
 				address: "6245 Agronomy Road V6T 1Z4",
