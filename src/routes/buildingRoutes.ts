@@ -1,5 +1,14 @@
 import express from "express";
-import { deleteBuilding, deleteRoom, getBuilding, getBuildings, getRoom, getRooms, putBuilding, putRoom } from "../controllers/buildingController";
+import {
+	deleteBuilding,
+	deleteRoom,
+	getBuilding,
+	getBuildings,
+	getRoom,
+	getRooms,
+	putBuilding,
+	putRoom,
+} from "../controllers/buildingController";
 import { parsePagination } from "../middleware/parsePagination";
 
 const router = express.Router();

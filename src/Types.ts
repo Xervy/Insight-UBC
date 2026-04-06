@@ -218,8 +218,6 @@ export class InvalidRequestParameters extends Error {
 	}
 }
 
-
-
 export class AlreadyExists extends Error {
 	constructor(msg: string) {
 		super(msg);

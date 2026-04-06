@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import * as buildingService from "../services/resources/buildingService";
 import { AlreadyExists } from "../Types";
-import * as roomService from "../services/resources/roomService"
+import * as roomService from "../services/resources/roomService";
 import { RESTfulError } from "../utils/buildingTypes";
 
 export async function getBuildings(req: Request, res: Response) {
@@ -56,10 +56,13 @@ export async function deleteBuilding(req: Request, res: Response) {
 
 export async function getRooms(req: Request, res: Response) {
 	try {
-		const result = await roomService.getRooms({
-			limit: (req as any).pagination.limit,
-			offset: (req as any).pagination.offset,
-		}, req.params.buildingID);
+		const result = await roomService.getRooms(
+			{
+				limit: (req as any).pagination.limit,
+				offset: (req as any).pagination.offset,
+			},
+			req.params.buildingID
+		);
 		res.status(200).json(result);
 	} catch (err: any) {
 		if (err instanceof RESTfulError) {
@@ -67,7 +70,6 @@ export async function getRooms(req: Request, res: Response) {
 		}
 	}
 }
-
 
 export async function getRoom(req: Request, res: Response) {
 	try {
@@ -81,7 +83,6 @@ export async function getRoom(req: Request, res: Response) {
 }
 
 export async function putRoom(req: Request, res: Response) {
-
 	try {
 		const result = await roomService.putRoom(req);
 		res.status(201).json(result);

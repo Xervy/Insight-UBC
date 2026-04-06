@@ -698,9 +698,8 @@ export async function createApp(config: AppConfig): Promise<Application> {
 			res.status(400).json(EBNFError((e as SearchEBNFError).message));
 		}
 	});
-	app.use("/api/", buildingRoutes);
 
-	
+	app.use("/api/", buildingRoutes);
 
 	app.post("/api/v2/datasets", upload.single("archive"), async (req, res) => {
 		// SC 422
