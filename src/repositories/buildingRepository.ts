@@ -1,4 +1,4 @@
-import { readPartOfData } from "../storage/fileStore";
+import { readPartOfData, writeBuildingsToData } from "../storage/fileStore";
 import { Building } from "../Types";
 
 export async function getAllBuildings(): Promise<Building[]> {
