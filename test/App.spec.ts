@@ -3385,7 +3385,6 @@ describe("REST API v1", function () {
 						},
 					},
 				});
-
 			expect(res).to.have.property("status", OK);
 			expect(res).to.have.deep.property("body", []);
 		});

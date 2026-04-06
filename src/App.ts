@@ -37,12 +37,6 @@ import {
 	UpdateListOfCoursesLinks,
 	UpdateListOfSectionsLinks,
 	UpdateSectionLink,
-	UpdateListOfBuildingsLinks,
-	UpdateBuildingLink,
-	BuildingCreateError,
-	UpdateListOfRoomsLinks,
-	UpdateRoomLink,
-	RoomCreateError,
 	SearchFacilitiesValidationError,
 	FacilityFieldsForColumn,
 	SearchFacilities,
@@ -52,13 +46,8 @@ import {
 	IsOfferingValid,
 	DatasetValidation,
 	IsZipValid,
-	IsRecordValid,
 	BulkUploadOfferings,
-	MatchListLengthToLimit,
 } from "./Helpers";
-import { error } from "console";
-import { read, readdir } from "fs";
-import { off } from "process";
 import { RetrieveAllQueryError } from "./utils/validation";
 import { initFileStore, readPartOfData, writeBuildingsToData, writeCoursesToData } from "./storage/fileStore";
 
@@ -816,16 +805,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 				return;
 			}
 
-			type FieldsWeCanAccess = {
-				nodeName: string;
-				childNodes?: FieldsWeCanAccess[];
-				attrs?: {
-					name: string;
-					value: string;
-				}[];
-				value?: string; // for #text
-			};
-
 			const htmlContent = await zip.files["index.htm"].async("string");
 			const halfBuiltBuildings = ParseBuildings(htmlContent, statObject);
 			const fullBuiltBuildings = [] as Building[];
@@ -883,7 +862,17 @@ export async function createApp(config: AppConfig): Promise<Application> {
 					ba += 1;
 				}
 			}
-			await writeBuildingsToData(buildingsinData);
+			// Makeshift thing
+			try {
+				await writeBuildingsToData(buildingsinData);
+			} catch (err: any) {
+				if (err.code === "ENOENT") {
+					await initFileStore(datadir);
+					await writeBuildingsToData(buildingsinData);
+				} else {
+					throw err;
+				}
+			}
 			statObject.status = "completed";
 			statObject.message = "Dataset processing complete";
 			statObject.stats.buildings_added = ba;

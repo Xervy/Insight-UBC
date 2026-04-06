@@ -9,7 +9,6 @@ export type Data = {
 	facilities: any[];
 };
 
-// 👇 called once from app.ts
 export async function initFileStore(datadir: string) {
 	await fs.mkdir(datadir, { recursive: true });
 
@@ -27,7 +26,7 @@ export async function initFileStore(datadir: string) {
 			"utf-8"
 		);
 	}
-}
+} // Chat GPT
 
 export async function writeCoursesToData(courses: Course[]): Promise<void> {
 	const data = await readWholeData();
