@@ -107,18 +107,6 @@ export async function createApp(config: AppConfig): Promise<Application> {
 	app.use(express.raw({ type: "application/*", limit: "10mb" }));
 	app.use(cors());
 
-	// const DATA_FILE = datadir + "/data.json";
-
-	// await fs.access(DATA_FILE).catch(async (_err) => {
-	// 	await fs.writeFile(
-	// 		DATA_FILE,
-	// 		JSON.stringify({
-	// 			course_offerings: [],
-	// 			facilities: [],
-	// 		}),
-	// 		"utf-8"
-	// 	);
-	// });
 	await initFileStore(datadir);
 
 	const UPLOAD_FILE = "uploadFile.json";

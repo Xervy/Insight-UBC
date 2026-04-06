@@ -218,11 +218,7 @@ export class InvalidRequestParameters extends Error {
 	}
 }
 
-export class NotFoundError extends Error {
-	constructor(msg: string) {
-		super(msg);
-	}
-}
+
 
 export class AlreadyExists extends Error {
 	constructor(msg: string) {

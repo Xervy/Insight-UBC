@@ -5,6 +5,7 @@ import { AlreadyExists, Building, InvalidRequestParameters, Room } from "../Type
 import { RetrieveAllQueryError } from "../utils/validation";
 import * as roomService from "../services/resources/roomService"
 import { readPartOfData, writeBuildingsToData } from "../storage/fileStore";
+import { RESTfulError } from "../utils/buildingTypes";
 
 export async function getBuildings(req: Request, res: Response) {
 	try {
@@ -15,7 +16,9 @@ export async function getBuildings(req: Request, res: Response) {
 
 		res.status(200).json(result);
 	} catch (err: any) {
-		res.status(400).json(RetrieveAllQueryError((req as any).pagination.limit, (req as any).pagination.offset));
+		if (err instanceof RESTfulError) {
+			res.status(err.status).json(err.details);
+		}
 	}
 }
 
@@ -24,7 +27,9 @@ export async function getBuilding(req: Request, res: Response) {
 		const result = await buildingService.getBuilding(req.params.buildingID);
 		res.status(200).json(result);
 	} catch (err: any) {
-		res.status(404).json(Generate404Error("building", (err as Error).message));
+		if (err instanceof RESTfulError) {
+			res.status(err.status).json(err.details);
+		}
 	}
 }
 
@@ -35,9 +40,9 @@ export async function putBuilding(req: Request, res: Response) {
 	} catch (err: any) {
 		if (err instanceof AlreadyExists) {
 			res.status(204).send();
-			return;
+		} else if (err instanceof RESTfulError) {
+			res.status(err.status).json(err.details);
 		}
-		res.status(422).json(BuildingCreateError(req.body));
 	}
 }
 
@@ -46,7 +51,9 @@ export async function deleteBuilding(req: Request, res: Response) {
 		const result = await buildingService.deleteBuilding(req.params.buildingID);
 		res.status(200).json(result);
 	} catch (err: any) {
-		res.status(404).json(Generate404Error("building", req.params.buildingID));
+		if (err instanceof RESTfulError) {
+			res.status(err.status).json(err.details);
+		}
 	}
 }
 
@@ -58,11 +65,9 @@ export async function getRooms(req: Request, res: Response) {
 		}, req.params.buildingID);
 		res.status(200).json(result);
 	} catch (err: any) {
-		if (err instanceof InvalidRequestParameters) {
-			res.status(400).json(RetrieveAllQueryError((req as any).pagination.limit, (req as any).pagination.offset));
-			return 
+		if (err instanceof RESTfulError) {
+			res.status(err.status).json(err.details);
 		}
-		res.status(404).json(Generate404Error("building", req.params.buildingID));
 	}
 }
 
