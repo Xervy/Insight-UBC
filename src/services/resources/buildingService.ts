@@ -1,8 +1,9 @@
 import { getAllBuildings } from "../../repositories/buildingRepository";
 import { RetrieveAllQueryError } from "../../utils/validation";
-import { BuildingCreateError, UpdateBuildingLink, UpdateListOfBuildingsLinks } from "../../Helpers";
+import { BuildingCreateError, Generate404Error, UpdateBuildingLink, UpdateListOfBuildingsLinks } from "../../Helpers";
 import { writeBuildingsToData } from "../../storage/fileStore";
 import { AlreadyExists } from "../../Types";
+import { RESTfulError } from "../../utils/buildingTypes";
 
 interface GetBuildingsParams {
 	limit: number;
@@ -13,7 +14,7 @@ export async function getBuildings(params: GetBuildingsParams) {
 	const { limit, offset } = params;
 	const queryErrorMessage = RetrieveAllQueryError(limit, offset);
 	if (typeof queryErrorMessage !== "boolean") {
-		throw new Error("invalid request parameters");
+		throw new RESTfulError(400, "Invalid request parameters", queryErrorMessage);
 	}
 
 	const allBuildings = await getAllBuildings();
@@ -33,7 +34,7 @@ export async function getBuilding(buildingID: string) {
 	const allBuildings = await getAllBuildings();
 	const foundBuilding = allBuildings.find((b) => b.id == buildingID);
 	if (!foundBuilding) {
-		throw new Error(buildingID);
+		throw new RESTfulError(404, "Not found", Generate404Error("building", buildingID));
 	}
 	return UpdateBuildingLink(foundBuilding);
 }
@@ -41,7 +42,7 @@ export async function getBuilding(buildingID: string) {
 export async function putBuilding(body: any, buildingID: string) {
 	const errorMessage = BuildingCreateError(body);
 	if (!(typeof errorMessage === "boolean")) {
-		throw new Error("validation error");
+		throw new RESTfulError(422, "Validation failed", errorMessage);
 	}
 
 	const allBuildings = await getAllBuildings();
@@ -73,7 +74,7 @@ export async function deleteBuilding(buildingID: string) {
 	const allBuildings = await getAllBuildings();
 	const foundBuilding = allBuildings.find((b) => b.id == buildingID);
 	if (!foundBuilding) {
-		throw new Error("404 error");
+		throw new RESTfulError(404, "Not found", Generate404Error("building", buildingID));
 	}
 	const allBuildingsUpdated = allBuildings.filter((b) => !(b.id == buildingID));
 	await writeBuildingsToData(allBuildingsUpdated);
