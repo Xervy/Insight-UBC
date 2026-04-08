@@ -5,6 +5,12 @@ Please keep your repository private.
 
 For information about the project, autotest, and the checkpoints, see the course webpage.
 
+## Plans for Future
+
+- Add a working frontend
+- Update Test Suite and Make sure everything works as intended
+- Refactor code fully (not just building routes)
+
 ## Configuring your environment
 
 To start using this project, you need to get your development environment configured so that you can build and execute the code.
