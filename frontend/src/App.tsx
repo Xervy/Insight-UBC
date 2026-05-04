@@ -3,8 +3,32 @@
 // import viteLogo from './assets/vite.svg'
 // import heroImg from './assets/hero.png'
 import { useState, useEffect } from 'react';
-import './App.css'
-import type { Course } from "../../src/Types"
+import './App.css';
+
+type Course = {
+  id: string;
+  title: string;
+  dept: string;
+  code: string;
+  links: {
+    self: string;
+    sections: string;
+  };
+};
+
+type Section = {
+  id: string;
+	instructor: string;
+	year: number;
+	avg: number;
+	pass: number;
+	fail: number;
+	audit: number;
+	links: {
+    self: string;
+    course: string;
+  }
+}
 
 function App() {
   return (
@@ -16,6 +40,7 @@ function App() {
 
 function ScrollableCourses() {
   const [openCourseID, setOpenCourseID] = useState<string | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
 
   const [courses, setCourses] = useState<Course[]>([]);
 
@@ -32,12 +57,23 @@ function ScrollableCourses() {
 
   //TODO Change from hard coded to connected to backend
 
-  function toggleSections(id: string) {
-    if (id === openCourseID) {
-      setOpenCourseID(null)
+  async function toggleSections(course: Course) {
+    if (course.id === openCourseID) {
+      setOpenCourseID(null);
+      setSections([]);
     } else {
-      setOpenCourseID(id);
+      setOpenCourseID(course.id);
+      const loadedSections = await loadSections(course)
+      setSections(loadedSections.items);
     }
+  }
+
+  async function loadSections(course: Course) {
+    const res = await fetch(course.links.sections);
+    const data = await res.json();
+    console.log("did we get here?");
+    console.log("Sections:", data.items)
+    return data;
   }
 
   return (
@@ -49,12 +85,12 @@ function ScrollableCourses() {
           <h2>{course.title}</h2>
           <p>{course.dept}</p>
 
-          <button onClick={() => toggleSections(course.id)}>
+          <button onClick={async () => {await toggleSections(course);}}>
             {openCourseID === course.id ? "Hide Sections" : "Show Sections"}
           </button>
 
           {openCourseID === course.id && (
-            <div>{course.sections.map((section) => (
+            <div>{sections.map((section) => (
               <div key={section.id} className='sections'>
                 Section: {section.id}
               </div>
