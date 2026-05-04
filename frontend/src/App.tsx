@@ -48,7 +48,6 @@ function ScrollableCourses() {
     const loadCourses = async () => {
       const res = await fetch("/api/v1/courses");
       const data = await res.json();
-      console.log("DATA: ", data);
       setCourses(data.items);
     }
 
@@ -71,8 +70,6 @@ function ScrollableCourses() {
   async function loadSections(course: Course) {
     const res = await fetch(course.links.sections);
     const data = await res.json();
-    console.log("did we get here?");
-    console.log("Sections:", data.items)
     return data;
   }
 
