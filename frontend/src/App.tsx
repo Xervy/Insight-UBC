@@ -2,8 +2,9 @@
 // import reactLogo from './assets/react.svg'
 // import viteLogo from './assets/vite.svg'
 // import heroImg from './assets/hero.png'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css'
+import type { Course } from "../../src/Types"
 
 function App() {
   return (
@@ -16,96 +17,20 @@ function App() {
 function ScrollableCourses() {
   const [openCourseID, setOpenCourseID] = useState<string | null>(null);
 
-  //TODO Change from hard coded to connected to backend
-  const demoCourses = [
-    {
-      "id": "cpsc210",
-      "title": "Object Oriented Code",
-      "dept": "Computer Science",
-      "code": "210",
-      "sections": [
-        {
-          "id": "24w201",
-          "instructor": "hunny, ro",
-          "year": 2024,
-          "avg": 64.3,
-          "pass": 167,
-          "fail": 3,
-          "audit": 1
-        },
-        {
-          "id": "24w202",
-          "instructor": "tip, queue",
-          "year": 2024,
-          "avg": 64.5,
-          "pass": 172,
-          "fail": 1,
-          "audit": 0
-        }
-      ]
-    },
-    {
-      "id": "math221",
-      "title": "Matrix Algebra",
-      "dept": "Mathematics",
-      "code": "221",
-      "sections": [
-        {
-          "id": "25w201",
-          "instructor": "dawg, p",
-          "year": 2025,
-          "avg": 76.3,
-          "pass": 193,
-          "fail": 2,
-          "audit": 1
-        },
-        {
-          "id": "25w202",
-          "instructor": "jamin, bean",
-          "year": 2025,
-          "avg": 57.1,
-          "pass": 139,
-          "fail": 49,
-          "audit": 7
-        },
-        {
-          "id": "25w203",
-          "instructor": "peesha, aloe",
-          "year": 2025,
-          "avg": 77.1,
-          "pass": 179,
-          "fail": 4,
-          "audit": 0
-        }
-      ]
-    },
-    {
-      "id": "cpsc310",
-      "title": "Introduction to Software Engineering",
-      "dept": "Computer Science",
-      "code": "310",
-      "sections": [
-        {
-          "id": "21w201",
-          "instructor": "holmes, reid",
-          "year": 2021,
-          "avg": 76.4,
-          "pass": 167,
-          "fail": 3,
-          "audit": 1
-        },
-        {
-          "id": "21w202",
-          "instructor": "bradley, nick",
-          "year": 2021,
-          "avg": 77.1,
-          "pass": 172,
-          "fail": 1,
-          "audit": 0
-        }
-      ]
+  const [courses, setCourses] = useState<Course[]>([]);
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      const res = await fetch("/api/v1/courses");
+      const data = await res.json();
+      console.log("DATA: ", data);
+      setCourses(data.items);
     }
-  ];
+
+    loadCourses();
+  }, []);
+
+  //TODO Change from hard coded to connected to backend
 
   function toggleSections(id: string) {
     if (id === openCourseID) {
@@ -119,7 +44,7 @@ function ScrollableCourses() {
     <div className='background'>
       <h1>Courses</h1>
 
-      {demoCourses.map((course) => (
+      {courses.map((course) => (
         <div key={course.id} className='courses'>
           <h2>{course.title}</h2>
           <p>{course.dept}</p>
