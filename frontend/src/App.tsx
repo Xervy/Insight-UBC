@@ -54,16 +54,15 @@ function ScrollableCourses() {
     loadCourses();
   }, []);
 
-  //TODO Change from hard coded to connected to backend
-
   async function toggleSections(course: Course) {
     if (course.id === openCourseID) {
       setOpenCourseID(null);
       setSections([]);
     } else {
-      setOpenCourseID(course.id);
+      setOpenCourseID(null);
       const loadedSections = await loadSections(course)
       setSections(loadedSections.items);
+      setOpenCourseID(course.id);
     }
   }
 
@@ -99,7 +98,6 @@ function ScrollableCourses() {
     </div>
   )
 }
-
 
 
 
