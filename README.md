@@ -1,10 +1,3 @@
-# CPSC 310 Project Repository
-
-This repository contains starter code for the class project.
-Please keep your repository private.
-
-For information about the project, autotest, and the checkpoints, see the course webpage.
-
 ## Plans for Future
 
 - Add a working frontend
